@@ -1,0 +1,507 @@
+// Prisma Schema for AI-Powered E-Commerce Platform
+// Using SQLite for development
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User roles
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+// Offer status
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COUNTERED
+  EXPIRED
+  CANCELLED
+}
+
+// Order status
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+// Payment status
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  FLAGGED
+}
+
+// Product types
+enum ProductType {
+  REGULAR
+  GROCERY
+}
+
+// Product status
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+  DELETED
+  EXPIRED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String?
+  phone         String?
+  role          Role      @default(BUYER)
+  isVerified    Boolean   @default(false)
+  latitude      Float?    // User's latitude for location-based services
+  longitude     Float?    // User's longitude for location-based services
+  devices       Json?     // Array of userAgent strings, max 2 devices
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  profile       UserProfile?
+  products      Product[]
+  offers        Offer[]
+  cart          Cart[]
+  orders        Order[]
+  payments      Payment[]
+  reviews       Review[]
+  searchHistory SearchHistory[]
+  wishlist      Wishlist[]
+  customOrdersAsBuyer  CustomOrder[] @relation("CustomOrdersAsBuyer")
+  customOrdersAsSeller CustomOrder[] @relation("CustomOrdersAsSeller")
+}
+
+model UserProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  bio             String?
+  avatar          String?
+  dateOfBirth     DateTime?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String?
+  // AI tracking fields
+  browsingHistory Json?    // Array of viewed product IDs
+  purchaseHistory Json?    // Array of purchased product IDs
+  interests       Json?    // Array of category IDs user is interested in
+  preferences     Json?    // User preferences for recommendations
+   
+  // Behavioral analytics
+  avgOrderValue   Float    @default(0)
+  totalSpent      Float    @default(0)
+  purchaseCount   Int      @default(0)
+  lastPurchaseDate DateTime?
+   
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+   
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  image       String?
+  parentId    String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Self-referential for subcategories
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  
+  products    Product[]
+}
+
+model Product {
+  id            String        @id @default(uuid())
+  sellerId      String
+  categoryId    String
+  
+  name          String
+  description   String?
+  images        Json          // Array of image URLs
+  price         Float
+  originalPrice Float?        // For showing discounts
+  stock         Int           @default(0)
+  
+  // Product type (REGULAR or GROCERY)
+  productType   ProductType   @default(REGULAR)
+  
+  // Grocery-specific fields
+  unit          String?       // e.g., "kg", "piece", "liter", "pack"
+  weight        Float?        // Weight in grams
+  expiryDate    DateTime?     // Expiry date for groceries
+  isOrganic     Boolean       @default(false)
+  freshness     String?       // e.g., "fresh", "frozen", "dried"
+  
+  // Negotiable pricing
+  isNegotiable  Boolean       @default(false)
+  minAcceptablePrice Float?    // AI-suggested minimum
+  maxAcceptablePrice Float?    // AI-suggested maximum
+  
+  // Shipping
+  shippingCostPerUnit Float  @default(0)
+  
+  // AI fields
+  tags          Json?         // Array of AI-generated tags
+  embedding     String?       // For semantic search
+  
+  status        ProductStatus @default(ACTIVE)
+  
+  // Delivery predictions
+  estimatedDeliveryDays Int?
+  returnLikelihood       Float?     // AI-predicted return likelihood
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  // Relations
+  seller        User          @relation(fields: [sellerId], references: [id])
+  category      Category      @relation(fields: [categoryId], references: [id])
+  
+  offers        Offer[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  reviews       Review[]
+  recommendations ProductRecommendation[] @relation("RecommendedProduct")
+  recommendedTo ProductRecommendation[] @relation("RecommendedTo")
+  wishlist      Wishlist[]
+  trending      TrendingProduct[]
+}
+
+model ProductRecommendation {
+  id              String   @id @default(uuid())
+  userId          String
+  productId       String
+  recommendedProductId String
+  
+  score           Float    // Recommendation score
+  reason          String?  // Why recommended
+  
+  createdAt       DateTime @default(now())
+  
+  product         Product  @relation("RecommendedProduct", fields: [productId], references: [id])
+  recommendedTo   Product  @relation("RecommendedTo", fields: [recommendedProductId], references: [id])
+}
+
+model Offer {
+  id              String      @id @default(uuid())
+  buyerId         String
+  productId       String
+  
+  initialOffer    Float       // Buyer's initial offer
+  finalPrice      Float?      // Final agreed price
+  status          OfferStatus @default(PENDING)
+  
+  // AI suggestions
+  aiSuggestedPrice Float?     // AI suggested acceptable price
+  aiConfidence      Float?    // AI confidence in acceptance
+  counterOffer     Float?     // Seller's counter offer
+  
+  expiresAt       DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+  
+  message         String?     // Negotiation message
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  buyer           User        @relation(fields: [buyerId], references: [id])
+  product         Product     @relation(fields: [productId], references: [id])
+}
+
+model Cart {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  totalPrice      Float     @default(0)
+  discount        Float     @default(0)
+  finalPrice      Float     @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  user            User      @relation(fields: [userId], references: [id])
+  items           CartItem[]
+}
+
+model Wishlist {
+  id              String    @id @default(uuid())
+  userId          String
+  productId       String
+  
+  createdAt       DateTime  @default(now())
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+model CartItem {
+  id              String    @id @default(uuid())
+  cartId          String
+  productId       String
+  
+  quantity        Int       @default(1)
+  originalPrice   Float
+  offerPrice      Float?    // Price after accepted offer
+  finalPrice      Float
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  cart            Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product         Product   @relation(fields: [productId], references: [id])
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  userId          String
+  orderNumber     String      @unique
+   
+  subtotal        Float
+  discount        Float       @default(0)
+  tax             Float       @default(0)
+  shippingCost    Float       @default(0)
+  total           Float
+   
+  status          OrderStatus @default(PENDING)
+   
+  shippingAddress String?
+  billingAddress String?
+   
+  // New fields for shipping method and distance
+  shippingMethod  String?
+  distance        Float?  // Distance between buyer and seller in kilometers
+   
+  // AI delivery predictions
+  predictedDeliveryDate DateTime?
+  deliveryRiskScore     Float?    // AI-predicted delivery issues
+   
+  notes           String?
+   
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+   
+  user            User        @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
+}
+
+model OrderItem {
+  id              String    @id @default(uuid())
+  orderId         String
+  productId       String
+  
+  quantity        Int
+  price           Float     // Price at time of purchase
+  offerDiscount   Float     @default(0)
+  finalPrice      Float
+  
+  createdAt       DateTime  @default(now())
+  
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product   @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String
+  orderId         String?
+  
+  amount          Float
+  currency        String        @default("USD")
+  method          String        // credit_card, debit_card, paypal, etc.
+  
+  status          PaymentStatus @default(PENDING)
+  
+  // Fraud detection
+  fraudScore      Float?        // AI fraud detection score
+  isFlagged       Boolean       @default(false)
+  flagReason      String?
+  
+  // Payment details
+  transactionId   String?       @unique
+  cardLast4       String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  user            User          @relation(fields: [userId], references: [id])
+  order           Order?        @relation(fields: [orderId], references: [id])
+}
+
+
+model Review {
+  id              String    @id @default(uuid())
+  userId          String
+  productId       String
+  
+  rating          Int       // 1-5 stars
+  title           String?
+  content         String?
+  
+  // AI analysis
+  sentimentScore  Float?    // Sentiment analysis score
+  isVerified      Boolean   @default(false)
+  isFake          Boolean   @default(false)  // Fake review detection
+  fakeScore       Float?    // AI fake review probability
+  
+  helpfulCount    Int       @default(0)
+  reportedCount   Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  user            User      @relation(fields: [userId], references: [id])
+  product         Product   @relation(fields: [productId], references: [id])
+}
+
+model SearchHistory {
+  id              String    @id @default(uuid())
+  userId          String
+  
+  query           String
+  filters         Json?     // Applied filters
+  resultsCount    Int?
+  
+  // AI autocomplete
+  aiSuggestions   Json?     // AI-suggested queries
+  
+  createdAt       DateTime  @default(now())
+  
+  user            User      @relation(fields: [userId], references: [id])
+}
+
+// Admin analytics models
+model SalesAnalytics {
+  id              String    @id @default(uuid())
+  date            DateTime
+  
+  revenue         Float     @default(0)
+  ordersCount     Int       @default(0)
+  productsSold    Int       @default(0)
+  
+  categoryBreakdown Json?   // Revenue by category
+  topProducts      Json?    // Top selling products
+  
+  createdAt       DateTime  @default(now())
+}
+
+model TrendingProduct {
+  id              String    @id @default(uuid())
+  productId       String
+  
+  trendScore      Float     // AI-calculated trend score
+  views           Int       @default(0)
+  purchases       Int       @default(0)
+  searchRank      Int?
+  
+  period          String    // daily, weekly, monthly
+  
+  createdAt       DateTime  @default(now())
+  
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ChurnPrediction {
+  id              String    @id @default(uuid())
+  userId          String
+  
+  churnScore      Float     // Probability of churn
+  riskLevel       String    // low, medium, high
+  
+  factors         Json?     // Contributing factors
+  
+  predictedAt     DateTime  @default(now())
+}
+
+// Custom Order enums and models
+enum CustomOrderStatus {
+  PENDING
+  VERIFIED
+  CONFIRMED
+  PROCESSING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum CustomItemStatus {
+  REQUESTED
+  AVAILABLE
+  UNAVAILABLE
+  ADJUSTED
+}
+
+model CustomOrder {
+  id              String             @id @default(uuid())
+  userId          String
+  sellerId        String
+  orderNumber     String             @unique
+  status          CustomOrderStatus  @default(PENDING)
+   
+  subtotal        Float              @default(0)
+  tax             Float              @default(0)
+  shippingCost    Float              @default(0)
+  total           Float              @default(0)
+   
+  // New fields for shipping method and distance
+  shippingMethod  String?
+  distance        Float?  // Distance between buyer and seller in kilometers
+   
+  shippingAddress String?
+  billingAddress  String?
+  notes           String?
+   
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+   
+  buyer           User               @relation("CustomOrdersAsBuyer", fields: [userId], references: [id])
+  seller          User               @relation("CustomOrdersAsSeller", fields: [sellerId], references: [id])
+  items           CustomOrderItem[]
+}
+
+model CustomOrderItem {
+  id                String           @id @default(uuid())
+  customOrderId     String
+  customItemName    String
+  requestedQuantity Float
+  unit              String?          // kg, liters, pieces, etc.
+  verifiedQuantity  Float?
+  verifiedPrice     Float?
+  status            CustomItemStatus @default(REQUESTED)
+  sellerNotes       String?
+  
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  customOrder       CustomOrder      @relation(fields: [customOrderId], references: [id], onDelete: Cascade)
+}
+
