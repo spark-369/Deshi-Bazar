@@ -22,7 +22,18 @@ export async function GET(request) {
         name: true,
         email: true,
         role: true,
-        phone: true
+        phone: true,
+        profile: {
+          select: {
+            address: true,
+            city: true,
+            division: true,
+            district: true,
+            postalCode: true,
+            zipCode: true,
+            country: true,
+          },
+        },
       },
       orderBy: { name: 'asc' }
     });

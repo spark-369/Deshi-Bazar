@@ -1,4 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// API base URL. Empty string means "same origin" — correct for Vercel where
+// the Next.js app and its API routes share one domain. NEXT_PUBLIC_API_URL is
+// only needed when the API is hosted separately (e.g. local dev on another port).
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 // Helper to get token
 const getToken = () => {
@@ -49,9 +52,11 @@ const getHeaders = (extraHeaders = {}) => {
     ...extraHeaders,
   };
   
-  const token = getToken();
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  if (!headers.Authorization) {
+    const token = getToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
   }
   
   return headers;
@@ -87,12 +92,13 @@ const buildQueryString = (params) => {
 // Simple fetch-based API wrapper
 export const api = {
   get: (url, config = {}) => {
-    const queryString = buildQueryString(config.params);
+    const { params, headers: configHeaders, ...rest } = config;
+    const queryString = buildQueryString(params);
     const finalUrl = queryString ? `${url}${queryString}` : url;
     return fetch(`${API_URL}${finalUrl}`, {
       method: 'GET',
-      headers: getHeaders(config.headers),
-      ...config,
+      headers: getHeaders(configHeaders),
+      ...rest,
     }).then(handleResponse);
   },
   

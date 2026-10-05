@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { hashPassword, generateToken } from "@/lib/auth";
+import { hashPassword, generateToken, generate2FATempToken, generate2FACode } from "@/lib/auth";
+import { send2FACode } from "@/lib/email";
 
 function getUserAgent(request) {
   return request.headers.get("user-agent") || "unknown";
@@ -25,6 +26,7 @@ export async function POST(request) {
       role = "BUYER",
       latitude,
       longitude,
+      enable2FA = true,
     } = body;
 
     if (!email || !password) {
@@ -56,6 +58,7 @@ export async function POST(request) {
         name,
         phone,
         role: role.toUpperCase(),
+        twoFactorEnabled: enable2FA,
         ...(latitude !== undefined && { latitude: latitude ?? null }),
         ...(longitude !== undefined && { longitude: longitude ?? null }),
         // Store the first device's userAgent directly on the User record
@@ -79,6 +82,36 @@ export async function POST(request) {
         profile: true,
       },
     });
+
+    // If 2FA is enabled, send code and return temp token
+    if (enable2FA) {
+      const code = generate2FACode();
+      const expires = new Date();
+      expires.setMinutes(expires.getMinutes() + 5);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          twoFactorCode: code,
+          twoFactorExpires: expires,
+        },
+      });
+
+      await send2FACode(user.email, code);
+
+      const tempToken = await generate2FATempToken(user);
+      const { password: _, ...userWithoutPassword } = user;
+
+      return NextResponse.json(
+        {
+          requires2FA: true,
+          email: user.email,
+          tempToken,
+          user: userWithoutPassword,
+        },
+        { status: 201 },
+      );
+    }
 
     const token = await generateToken(user);
     const { password: _, ...userWithoutPassword } = user;

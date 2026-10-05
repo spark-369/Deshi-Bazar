@@ -47,19 +47,15 @@ export default function EditProductPage() {
       try {
         setLoading(true);
 
-        // Fetch categories
         const categoriesData = await productService.getCategories();
         setCategories(categoriesData);
 
-        // Fetch sellers
         const usersData = await api.get("/api/admin/users?role=SELLER");
         setSellers(usersData.users || []);
 
-        // Fetch product using admin endpoint
         const productData = await api.get(`/api/admin/products/${params.id}`);
         setProduct(productData);
 
-        // Populate form
         setFormData({
           name: productData.name || "",
           description: productData.description || "",
@@ -191,41 +187,45 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
         {/* Back Button */}
         <Link
           href="/admin/products"
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6"
+          className="inline-flex items-center text-sm sm:text-base text-gray-600 hover:text-gray-900 mb-4 sm:mb-6"
         >
-          <FaArrowLeft className="mr-2" />
+          <FaArrowLeft className="mr-1.5 sm:mr-2 text-sm" />
           Back to Products
         </Link>
 
-        <div className="mb-8 flex justify-between items-center">
+        <div className="mb-6 sm:mb-8 flex flex-col gap-3 sm:gap-4 sm:flex-row sm:justify-between sm:items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Edit Product</h1>
-            <p className="text-gray-600 mt-2">Update product details</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+              Edit Product
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
+              Update product details
+            </p>
           </div>
           <Button
             variant="outline"
             onClick={handleDelete}
-            className="text-red-600 border-red-600 hover:bg-red-50"
+            className="text-red-600 border-red-600 hover:bg-red-50 w-full sm:w-auto"
           >
             Delete Product
           </Button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Basic Info */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FaBox className="text-blue-600" />
+            <Card className="p-4 sm:p-5 lg:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                <FaBox className="text-blue-600 text-sm sm:text-base" />
                 Basic Information
               </h2>
 
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Product Name *
@@ -249,7 +249,7 @@ export default function EditProductPage() {
                     onChange={handleChange}
                     placeholder="Describe your product"
                     rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
 
@@ -262,7 +262,7 @@ export default function EditProductPage() {
                     value={formData.categoryId}
                     onChange={handleChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   >
                     <option value="">Select a category</option>
                     {categories.map((cat) => (
@@ -287,7 +287,7 @@ export default function EditProductPage() {
                     value={formData.sellerId}
                     onChange={handleChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   >
                     <option value="">Select a seller</option>
                     {sellers.map((seller) => (
@@ -306,7 +306,7 @@ export default function EditProductPage() {
                     name="status"
                     value={formData.status}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   >
                     <option value="ACTIVE">Active</option>
                     <option value="INACTIVE">Inactive</option>
@@ -330,14 +330,14 @@ export default function EditProductPage() {
             </Card>
 
             {/* Pricing */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FaTag className="text-blue-600" />
+            <Card className="p-4 sm:p-5 lg:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                <FaTag className="text-blue-600 text-sm sm:text-base" />
                 Pricing & Stock
               </h2>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Price *
@@ -369,7 +369,7 @@ export default function EditProductPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Stock Quantity
@@ -398,7 +398,7 @@ export default function EditProductPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pt-1">
                   <input
                     type="checkbox"
                     name="isNegotiable"
@@ -418,33 +418,40 @@ export default function EditProductPage() {
             </Card>
 
             {/* Images */}
-            <Card className="p-6 lg:col-span-2">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FaImage className="text-blue-600" />
+            <Card className="p-4 sm:p-5 lg:p-6 lg:col-span-2">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                <FaImage className="text-blue-600 text-sm sm:text-base" />
                 Product Images
               </h2>
 
-              <div className="space-y-4">
-                <div className="flex gap-2">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex flex-col xs:flex-row gap-2">
                   <Input
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
                     placeholder="Enter image URL"
                     className="flex-1"
                   />
-                  <Button type="button" onClick={handleAddImage}>
+                  <Button
+                    type="button"
+                    onClick={handleAddImage}
+                    className="w-full xs:w-auto"
+                  >
                     Add Image
                   </Button>
                 </div>
 
-                {formData.images.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {formData.images.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                     {formData.images.map((img, index) => (
-                      <div key={index} className="relative group">
+                      <div
+                        key={index}
+                        className="relative group aspect-square"
+                      >
                         <img
                           src={img}
                           alt={`Product ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-lg"
+                          className="w-full h-full object-cover rounded-lg"
                           onError={(e) => {
                             e.target.src =
                               "https://via.placeholder.com/150?text=No+Image";
@@ -453,19 +460,19 @@ export default function EditProductPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveImage(index)}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           ×
                         </button>
                       </div>
                     ))}
                   </div>
-                )}
-
-                {formData.images.length === 0 && (
+                ) : (
                   <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                    <FaImage className="mx-auto text-4xl text-gray-300 mb-2" />
-                    <p className="text-gray-500">No images added yet</p>
+                    <FaImage className="mx-auto text-3xl sm:text-4xl text-gray-300 mb-2" />
+                    <p className="text-sm text-gray-500">
+                      No images added yet
+                    </p>
                   </div>
                 )}
               </div>
@@ -473,15 +480,20 @@ export default function EditProductPage() {
           </div>
 
           {/* Submit */}
-          <div className="mt-6 flex justify-end gap-4">
+          <div className="mt-4 sm:mt-6 flex flex-col-reverse xs:flex-row justify-end gap-2 sm:gap-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => router.back()}
+              className="w-full xs:w-auto"
             >
               Cancel
             </Button>
-            <Button type="submit" loading={submitting}>
+            <Button
+              type="submit"
+              loading={submitting}
+              className="w-full xs:w-auto"
+            >
               Update Product
             </Button>
           </div>

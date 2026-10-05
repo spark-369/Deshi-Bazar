@@ -47,7 +47,7 @@ export default function ProductDetailPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-   useEffect(() => {
+  useEffect(() => {
     const fetchProduct = async () => {
       if (!params.id) return;
 
@@ -59,7 +59,10 @@ export default function ProductDetailPage() {
           productData.tags = Array.isArray(productData.tags)
             ? productData.tags
             : typeof productData.tags === "string"
-              ? productData.tags.split(",").map((t) => t.trim()).filter(Boolean)
+              ? productData.tags
+                  .split(",")
+                  .map((t) => t.trim())
+                  .filter(Boolean)
               : [];
         }
         setProduct(productData);
@@ -186,7 +189,6 @@ export default function ProductDetailPage() {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -199,10 +201,10 @@ export default function ProductDetailPage() {
           Back to Products
         </Link>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 min-h-[60vh]">
           {/* Product Images */}
-          <div className="space-y-4">
-            <div className="aspect-square bg-white rounded-xl overflow-hidden shadow-sm">
+          <div className="space-y-3">
+            <div className="aspect-[4/3] bg-white rounded-xl overflow-hidden shadow-sm">
               {product.images && product.images.length > 0 ? (
                 <img
                   src={product.images[selectedImage]}
@@ -211,7 +213,7 @@ export default function ProductDetailPage() {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <FaBox className="text-6xl text-gray-300" />
+                  <FaBox className="text-5xl text-gray-300" />
                 </div>
               )}
             </div>
@@ -221,7 +223,7 @@ export default function ProductDetailPage() {
                   <button
                     key={i}
                     onClick={() => setSelectedImage(i)}
-                    className={`w-20 h-20 rounded-lg overflow-hidden border-2 ${
+                    className={`w-16 h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 ${
                       selectedImage === i
                         ? "border-blue-600"
                         : "border-transparent"
@@ -239,14 +241,14 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                   {product.category?.name}
                 </span>
                 {product.isNegotiable && (
-                  <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center gap-1">
+                  <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center gap-1">
                     <FaNegotiable />
                     Negotiable
                   </span>
@@ -255,40 +257,42 @@ export default function ProductDetailPage() {
                   product.tags.map((tag, i) => (
                     <span
                       key={i}
-                      className="px-3 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full"
+                      className="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs font-medium rounded-full"
                     >
                       {tag}
                     </span>
                   ))}
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900">
                 {product.name}
               </h1>
-              <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-3 mt-1.5">
                 <div className="flex items-center gap-1">
                   {renderStars(product.rating || 0)}
                 </div>
-                <span className="text-gray-500">
+                <span className="text-gray-500 text-sm">
                   ({reviews.length} reviews)
                 </span>
-                <span className="text-gray-500">|</span>
-                <span className="text-gray-500">{product.stock} in stock</span>
+                <span className="text-gray-500 text-sm">|</span>
+                <span className="text-gray-500 text-sm">
+                  {product.stock} in stock
+                </span>
               </div>
             </div>
 
             {/* Price */}
-            <div className="bg-white rounded-xl p-6 shadow-sm">
+            <div className="bg-white rounded-xl p-4 shadow-sm">
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold text-gray-900">
-                  ${product.price?.toFixed(2)}
+                <span className="text-3xl font-bold text-gray-900">
+                  {product.price?.toFixed(2)} Tk.
                 </span>
                 {product.originalPrice &&
                   product.originalPrice > product.price && (
                     <>
-                      <span className="text-xl text-gray-500 line-through">
-                        ${product.originalPrice?.toFixed(2)}
+                      <span className="text-lg text-gray-500 line-through">
+                        {product.originalPrice?.toFixed(2)} Tk.
                       </span>
-                      <span className="px-2 py-1 bg-red-100 text-red-800 text-sm font-medium rounded">
+                      <span className="px-1.5 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded">
                         {Math.round(
                           (1 - product.price / product.originalPrice) * 100,
                         )}
@@ -299,7 +303,7 @@ export default function ProductDetailPage() {
               </div>
 
               {product.isNegotiable && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="mt-3 pt-3 border-t border-gray-100">
                   <p className="text-sm text-gray-600 mb-2">Make an Offer</p>
                   <div className="flex gap-2">
                     <Input
@@ -317,7 +321,7 @@ export default function ProductDetailPage() {
                       Submit Offer
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-500 mt-1.5">
                     AI will suggest if your offer is likely to be accepted
                   </p>
                 </div>
@@ -325,20 +329,22 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Quantity & Actions */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex items-center border border-gray-200 rounded-lg">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-4 py-3 hover:bg-gray-50"
+                  className="px-3 py-2 hover:bg-gray-50"
                 >
                   <FaMinus />
                 </button>
-                <span className="px-4 py-3 font-medium">{quantity}</span>
+                <span className="px-3 py-2 font-medium text-sm">
+                  {quantity}
+                </span>
                 <button
                   onClick={() =>
                     setQuantity(Math.min(product.stock, quantity + 1))
                   }
-                  className="px-4 py-3 hover:bg-gray-50"
+                  className="px-3 py-2 hover:bg-gray-50"
                 >
                   <FaPlus />
                 </button>
@@ -364,11 +370,11 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Product Details */}
-            <Card className="p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">
+            <Card className="p-4">
+              <h3 className="font-semibold text-gray-900 mb-3 text-sm">
                 Product Details
               </h3>
-              <dl className="grid grid-cols-2 gap-4 text-sm">
+              <dl className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <dt className="text-gray-500">SKU</dt>
                   <dd className="font-medium">{product.sku || "N/A"}</dd>
@@ -521,7 +527,8 @@ export default function ProductDetailPage() {
                           } catch (error) {
                             console.error("Error submitting review:", error);
                             alert(
-                              error.response?.data?.error ||
+                              error.data?.error ||
+                                error.message ||
                                 "Failed to submit review",
                             );
                           } finally {
@@ -568,7 +575,9 @@ export default function ProductDetailPage() {
                         <span className="text-sm text-gray-500">
                           {new Date(review.createdAt).toLocaleDateString()}
                           <br />
-                          {review.isFake ? "Fake" : "Not Fake"}
+                          {review?.aiAnalysis?.fakeDetection?.isFake
+                            ? "Fake"
+                            : "Not Fake"}
                         </span>
                       </div>
                       <p className="mt-4 text-gray-600">{review.title}</p>
@@ -577,7 +586,31 @@ export default function ProductDetailPage() {
                         <div className="mt-3 pt-3 border-t border-gray-100">
                           <p className="text-xs text-gray-500">
                             <span className="font-medium">AI Analysis:</span>{" "}
-                            {review.aiAnalysis}
+                            Sentiment:{" "}
+                            <span className="font-medium">
+                              {review.aiAnalysis.sentiment || "N/A"}
+                            </span>
+                            {review.aiAnalysis.confidence != null && (
+                              <span>
+                                {" "}
+                                (
+                                {(review.aiAnalysis.confidence * 100).toFixed(
+                                  0,
+                                )}
+                                % confidence)
+                              </span>
+                            )}
+                            {review.aiAnalysis.fakeDetection && (
+                              <span>
+                                {" "}
+                                · Fake:{" "}
+                                {(
+                                  review.aiAnalysis.fakeDetection.fakeScore *
+                                  100
+                                ).toFixed(0)}
+                                %
+                              </span>
+                            )}
                           </p>
                         </div>
                       )}
@@ -601,7 +634,7 @@ export default function ProductDetailPage() {
                           5-7 business days
                         </p>
                       </div>
-                      <span className="font-medium">$5.00</span>
+                      <span className="font-medium">5.00 Tk.</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
                       <div>
@@ -610,7 +643,7 @@ export default function ProductDetailPage() {
                           2-3 business days
                         </p>
                       </div>
-                      <span className="font-medium">$15.00</span>
+                      <span className="font-medium">15.00 Tk.</span>
                     </div>
                     <div className="flex justify-between items-center py-2">
                       <div>
@@ -619,7 +652,7 @@ export default function ProductDetailPage() {
                           Next business day
                         </p>
                       </div>
-                      <span className="font-medium">$30.00</span>
+                      <span className="font-medium">30.00 Tk.</span>
                     </div>
                   </div>
                 </Card>
@@ -659,10 +692,10 @@ export default function ProductDetailPage() {
                       </div>
                       <div className="p-4">
                         <h3 className="font-medium text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600">
-                          {rec.recommendedTo?.name || 'Unknown Product'}
+                          {rec.recommendedTo?.name || "Unknown Product"}
                         </h3>
                         <p className="text-lg font-bold text-gray-900">
-                          ${rec.recommendedTo?.price?.toFixed(2) || 'N/A'}
+                          Tk.{rec.recommendedTo?.price?.toFixed(2) || "N/A"}
                         </p>
                       </div>
                     </div>

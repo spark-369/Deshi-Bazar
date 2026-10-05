@@ -261,7 +261,7 @@ export default function AddProductPage() {
       router.push("/seller/products");
     } catch (error) {
       console.error("Error creating product:", error);
-      alert(error.response?.data?.error || "Failed to create product");
+      alert(error.data?.error || error.message || "Failed to create product");
     } finally {
       setSubmitting(false);
     }
@@ -270,7 +270,10 @@ export default function AddProductPage() {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="text-center p-4">
+          <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -280,36 +283,36 @@ export default function AddProductPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8">
         {/* Back Button */}
         <Link
           href="/seller/products"
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6"
+          className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 text-sm sm:text-base"
         >
-          <FaArrowLeft className="mr-2" />
+          <FaArrowLeft className="mr-1.5 sm:mr-2" />
           Back to Products
         </Link>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Add New Product</h1>
-          <p className="text-gray-600 mt-2">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Add New Product</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Create a new listing for your store
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Basic Info */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FaBox className="text-blue-600" />
+            <Card className="p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-1.5 sm:gap-2">
+                <FaBox className="text-blue-600 text-sm sm:text-base" />
                 Basic Information
               </h2>
 
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Product Name *
                   </label>
                   <Input
@@ -322,7 +325,7 @@ export default function AddProductPage() {
                 </div>
 
                  <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                      Description
                    </label>
                    <textarea
@@ -330,18 +333,18 @@ export default function AddProductPage() {
                      value={formData.description}
                      onChange={handleChange}
                      placeholder="Describe your product"
-                     rows={4}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                     rows={3}
+                     className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                    />
                  </div>
 
                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Category *
                     </label>
-                    <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                    <div className="space-y-1 max-h-48 sm:max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-2 sm:p-3">
                       {categories.length === 0 ? (
-                        <p className="text-gray-500 text-sm">
+                        <p className="text-gray-500 text-xs sm:text-sm">
                           No categories available
                         </p>
                       ) : (
@@ -350,7 +353,7 @@ export default function AddProductPage() {
                           const parentMatch = categoryMatches.find(m => m.id === cat.id);
                           return (
                             <div key={cat.id}>
-                              <label className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                              <label className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 sm:p-2 rounded">
                                 <input
                                   type="radio"
                                   name="categoryId"
@@ -359,24 +362,24 @@ export default function AddProductPage() {
                                   onChange={handleChange}
                                   className="border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
-                                <span className="text-sm font-medium text-gray-900 flex-1">
+                                <span className="text-xs sm:text-sm font-medium text-gray-900 flex-1">
                                   {cat.name}
                                 </span>
                                 {parentMatch && (
-                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${parentMatch.score >= 0.7 ? 'bg-green-100 text-green-700' : parentMatch.score >= 0.4 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                  <span className={`text-[10px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded ${parentMatch.score >= 0.7 ? 'bg-green-100 text-green-700' : parentMatch.score >= 0.4 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
                                     {parentMatch.percentage}%
                                   </span>
                                 )}
                               </label>
 
                               {hasChildren && (
-                                <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-200 pl-3">
+                                <div className="ml-4 sm:ml-6 mt-1 space-y-0.5 sm:space-y-1 border-l-2 border-gray-200 pl-2 sm:pl-3">
                                   {cat.children.map((child) => {
                                     const childMatch = categoryMatches.find(m => m.id === child.id);
                                     return (
                                      <label
                                        key={child.id}
-                                       className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                                       className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 sm:p-2 rounded"
                                      >
                                        <input
                                          type="radio"
@@ -386,7 +389,7 @@ export default function AddProductPage() {
                                          onChange={handleChange}
                                          className="border-gray-300 text-blue-600 focus:ring-blue-500"
                                        />
-                                       <span className="text-sm text-gray-700 flex-1">
+                                       <span className="text-xs sm:text-sm text-gray-700 flex-1">
                                          {child.name}
                                        </span>
                                      </label>
@@ -402,7 +405,7 @@ export default function AddProductPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Tags (comma separated)
                     </label>
                    <Input
@@ -417,13 +420,13 @@ export default function AddProductPage() {
 
             {/* Camera Modal */}
             {showCamera && (
-              <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 lg:col-span-2">
-                <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4 max-h-[90vh] overflow-auto">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold">Camera Capture</h3>
+              <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 lg:col-span-2 p-3 sm:p-4">
+                <div className="bg-white p-4 sm:p-6 rounded-lg max-w-md w-full mx-4 max-h-[90vh] overflow-auto">
+                  <div className="flex justify-between items-center mb-3 sm:mb-4">
+                    <h3 className="text-base sm:text-xl font-bold">Camera Capture</h3>
                     <button
                       onClick={closeCamera}
-                      className="text-gray-500 hover:text-gray-700"
+                      className="text-gray-500 hover:text-gray-700 p-1"
                     >
                       ×
                     </button>
@@ -431,10 +434,10 @@ export default function AddProductPage() {
                   <video
                     ref={videoRef}
                     autoPlay
-                    className="w-full h-64 object-cover rounded mb-4 bg-black"
+                    className="w-full h-48 sm:h-64 object-cover rounded mb-3 sm:mb-4 bg-black"
                   />
                   <canvas ref={canvasRef} style={{ display: "none" }} />
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       onClick={capturePhoto}
                       className="flex-1 bg-green-600"
@@ -455,16 +458,16 @@ export default function AddProductPage() {
             )}
 
             {/* Pricing */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FaTag className="text-blue-600" />
+            <Card className="p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-1.5 sm:gap-2">
+                <FaTag className="text-blue-600 text-sm sm:text-base" />
                 Pricing & Stock
               </h2>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Price *
                     </label>
                     <Input
@@ -479,7 +482,7 @@ export default function AddProductPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Original Price
                     </label>
                     <Input
@@ -494,9 +497,9 @@ export default function AddProductPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Stock Quantity
                     </label>
                     <Input
@@ -509,7 +512,7 @@ export default function AddProductPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Estimated Delivery Days
                     </label>
                     <Input
@@ -524,7 +527,7 @@ export default function AddProductPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Shipping Cost per Unit (default 0 for free)
                   </label>
                   <Input
@@ -536,7 +539,7 @@ export default function AddProductPage() {
                     min="0"
                     step="0.01"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
                     This cost will be added per item in cart
                   </p>
                 </div>
@@ -552,7 +555,7 @@ export default function AddProductPage() {
                   />
                   <label
                     htmlFor="isNegotiable"
-                    className="text-sm text-gray-700"
+                    className="text-xs sm:text-sm text-gray-700"
                   >
                     Allow price negotiation
                   </label>
@@ -561,15 +564,15 @@ export default function AddProductPage() {
             </Card>
 
             {/* Images */}
-            <Card className="p-6 lg:col-span-2">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FaImage className="text-blue-600" />
+            <Card className="p-4 sm:p-6 lg:col-span-2">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-1.5 sm:gap-2">
+                <FaImage className="text-blue-600 text-sm sm:text-base" />
                 Product Images
               </h2>
 
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* URL Input */}
-                <div className="flex gap-2">
+                <div className="flex flex-col xs:flex-row gap-2">
                   <Input
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
@@ -579,7 +582,7 @@ export default function AddProductPage() {
                   <Button
                     type="button"
                     onClick={handleAddImage}
-                    className="whitespace-nowrap"
+                    className="whitespace-nowrap w-full xs:w-auto"
                   >
                     <FaImage className="mr-1" />
                     Add URL
@@ -588,7 +591,7 @@ export default function AddProductPage() {
 
                 {/* File Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
                     Or upload images
                   </label>
                   <input
@@ -598,16 +601,16 @@ export default function AddProductPage() {
                     accept="image/*"
                     multiple
                     onChange={handleFileSelect}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 cursor-pointer hover:bg-gray-50"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 cursor-pointer hover:bg-gray-50"
                   />
                 </div>
 
                 {/* Images Preview */}
                 {formData.images.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
                     {formData.images.map((img, index) => (
                       <div key={index} className="relative group">
-                        <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                        <div className="w-full h-24 sm:h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                           <img
                             src={img}
                             alt={`Preview ${index + 1}`}
@@ -621,11 +624,11 @@ export default function AddProductPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveImage(index)}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-all"
+                          className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 bg-red-500 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-[10px] sm:text-xs opacity-0 group-hover:opacity-100 transition-all"
                         >
                           ×
                         </button>
-                        <div className="text-xs text-gray-500 mt-1 truncate">
+                        <div className="text-[10px] sm:text-xs text-gray-500 mt-1 truncate">
                           {img.startsWith("data:")
                             ? "Uploaded"
                             : img.substring(img.lastIndexOf("/") + 1)}
@@ -636,28 +639,28 @@ export default function AddProductPage() {
                 )}
 
                 {formData.images.length === 0 && (
-                  <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-                    <FaImage className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <div className="text-center py-8 sm:py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                    <FaImage className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mb-3 sm:mb-4" />
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-1 sm:mb-2">
                       No images
                     </h3>
-                    <p className="text-gray-500 mb-4">
+                    <p className="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-6 max-w-xs mx-auto px-4">
                       Add URLs or drag & drop files
                     </p>
                     <div className="flex flex-wrap gap-2 justify-center">
-                      <label className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm cursor-pointer hover:bg-blue-200">
+                      <label className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-100 text-blue-800 rounded-lg text-xs sm:text-sm cursor-pointer hover:bg-blue-200">
                         📷 Paste URL
                       </label>
                       <label
                         htmlFor="file-upload"
-                        className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm cursor-pointer hover:bg-green-200"
+                        className="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-100 text-green-800 rounded-lg text-xs sm:text-sm cursor-pointer hover:bg-green-200"
                       >
                         📁 Upload Files
                       </label>
                       <button
                         type="button"
                         onClick={openCamera}
-                        className="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg text-sm cursor-pointer hover:bg-purple-200"
+                        className="px-3 sm:px-4 py-1.5 sm:py-2 bg-purple-100 text-purple-800 rounded-lg text-xs sm:text-sm cursor-pointer hover:bg-purple-200"
                       >
                         📱 Camera
                       </button>
@@ -668,15 +671,15 @@ export default function AddProductPage() {
             </Card>
 
             {/* Grocery Settings */}
-            <Card className="p-6 lg:col-span-2">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FaLeaf className="text-green-600" />
+            <Card className="p-4 sm:p-6 lg:col-span-2">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-1.5 sm:gap-2">
+                <FaLeaf className="text-green-600 text-sm sm:text-base" />
                 Grocery Settings
               </h2>
 
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex flex-col xs:flex-row items-start xs:items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     <input
                       type="radio"
                       name="productType"
@@ -688,12 +691,12 @@ export default function AddProductPage() {
                     />
                     <label
                       htmlFor="productTypeRegular"
-                      className="text-sm text-gray-700"
+                      className="text-xs sm:text-sm text-gray-700"
                     >
                       Regular Product
                     </label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     <input
                       type="radio"
                       name="productType"
@@ -705,7 +708,7 @@ export default function AddProductPage() {
                     />
                     <label
                       htmlFor="productTypeGrocery"
-                      className="text-sm text-gray-700"
+                      className="text-xs sm:text-sm text-gray-700"
                     >
                       Grocery Item
                     </label>
@@ -713,16 +716,16 @@ export default function AddProductPage() {
                 </div>
 
                 {formData.productType === "GROCERY" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4 bg-green-50 rounded-lg">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4 p-3 sm:p-4 bg-green-50 rounded-lg">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Unit (e.g., kg, piece, liter)
                       </label>
                       <select
                         name="unit"
                         value={formData.unit}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       >
                         <option value="">Select unit</option>
                         <option value="kg">Kilogram (kg)</option>
@@ -737,7 +740,7 @@ export default function AddProductPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Weight (grams)
                       </label>
                       <Input
@@ -751,7 +754,7 @@ export default function AddProductPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         <FaCalendarAlt className="inline mr-1" />
                         Expiry Date
                       </label>
@@ -764,14 +767,14 @@ export default function AddProductPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Freshness
                       </label>
                       <select
                         name="freshness"
                         value={formData.freshness}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       >
                         <option value="">Select freshness</option>
                         <option value="fresh">Fresh</option>
@@ -781,7 +784,7 @@ export default function AddProductPage() {
                       </select>
                     </div>
 
-                    <div className="flex items-center gap-2 md:col-span-2">
+                    <div className="flex items-center gap-2 sm:col-span-2">
                       <input
                         type="checkbox"
                         name="isOrganic"
@@ -792,7 +795,7 @@ export default function AddProductPage() {
                       />
                       <label
                         htmlFor="isOrganic"
-                        className="text-sm text-gray-700"
+                        className="text-xs sm:text-sm text-gray-700"
                       >
                         <FaLeaf className="inline text-green-600" />
                         Organic Product (certified organic)
@@ -805,15 +808,16 @@ export default function AddProductPage() {
           </div>
 
           {/* Submit */}
-          <div className="mt-6 flex justify-end gap-4">
+          <div className="mt-4 sm:mt-6 flex flex-col xs:flex-row justify-end gap-2 sm:gap-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => router.back()}
+              className="w-full xs:w-auto"
             >
               Cancel
             </Button>
-            <Button type="submit" loading={submitting}>
+            <Button type="submit" loading={submitting} className="w-full xs:w-auto">
               Create Product
             </Button>
           </div>

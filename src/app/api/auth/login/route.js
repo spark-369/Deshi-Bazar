@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { comparePassword, generateToken } from "@/lib/auth";
+import { comparePassword, generateToken, generate2FATempToken, generate2FACode } from "@/lib/auth";
+import { send2FACode } from "@/lib/email";
 
 const MAX_DEVICES = 2;
 
@@ -69,11 +70,9 @@ export async function POST(request) {
     const body = await request.json();
     const { email, password, phone, latitude, longitude } = body;
 
-    console.log(latitude, longitude);
-
     if (!email || !password || !phone) {
       return NextResponse.json(
-        { error: "Email,password & phone are required" },
+        { error: "Email, password, and phone are required" },
         { status: 400 },
       );
     }
@@ -121,6 +120,33 @@ export async function POST(request) {
           ...(longitude !== undefined && { longitude }),
           ...(phone !== undefined && { phone: phone || null }),
         },
+      });
+    }
+
+    // If 2FA is enabled, send code and return temp token
+    if (user.twoFactorEnabled) {
+      const code = generate2FACode();
+      const expires = new Date();
+      expires.setMinutes(expires.getMinutes() + 5);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          twoFactorCode: code,
+          twoFactorExpires: expires,
+        },
+      });
+
+      await send2FACode(user.email, code);
+
+      const tempToken = await generate2FATempToken(user);
+      const { password: _, ...userWithoutPassword } = user;
+
+      return NextResponse.json({
+        requires2FA: true,
+        email: user.email,
+        tempToken,
+        user: userWithoutPassword,
       });
     }
 

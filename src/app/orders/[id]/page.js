@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { orderService } from "@/services/orderService";
 import { Card, Button } from "@/components/common";
+import AddressDisplay from "@/components/common/AddressDisplay";
 import {
   FaArrowLeft,
   FaBox,
@@ -261,8 +262,8 @@ export default function OrderDetailPage() {
                               {item.verifiedQuantity !== undefined && (
                                 <span className="text-green-600 font-medium">
                                   Verified: {item.verifiedQuantity?.toFixed(1)}{" "}
-                                  {item.unit || "units"} @ $
-                                  {item.verifiedPrice?.toFixed(2)}
+                                   {item.unit || "units"} @ Tk.
+                                   {item.verifiedPrice?.toFixed(2)}
                                 </span>
                               )}
                             </div>
@@ -289,11 +290,12 @@ export default function OrderDetailPage() {
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-xl font-bold text-gray-900">
-                              $
+                              Tk.
                               {(
+                                item.itemTotal ??
                                 (item.verifiedQuantity ||
                                   item.requestedQuantity) *
-                                (item.verifiedPrice || 0)
+                                  (item.verifiedPrice || 0)
                               ).toFixed(2)}
                             </p>
                           </div>
@@ -351,7 +353,7 @@ export default function OrderDetailPage() {
                   <div className="flex justify-between items-center py-2 border-b border-gray-100">
                     <span className="text-gray-600">Subtotal</span>
                     <span className="font-medium">
-                      $
+                      Tk.
                       {currentOrder.subtotal?.toFixed(2) ||
                         currentOrder.total?.toFixed(2)}
                     </span>
@@ -360,7 +362,7 @@ export default function OrderDetailPage() {
                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
                       <span className="text-gray-600">Tax</span>
                       <span className="font-medium">
-                        ${currentOrder.tax.toFixed(2)}
+                        Tk.{currentOrder.tax.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -368,14 +370,14 @@ export default function OrderDetailPage() {
                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
                       <span className="text-gray-600">Shipping</span>
                       <span className="font-medium">
-                        ${currentOrder.shippingCost.toFixed(2)}
+                        Tk.{currentOrder.shippingCost.toFixed(2)}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between items-center pt-3">
                     <span className="text-lg font-semibold">Total</span>
                     <span className="text-2xl font-bold text-green-600">
-                      ${currentOrder.total?.toFixed(2)}
+                      Tk.{currentOrder.total?.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -395,7 +397,15 @@ export default function OrderDetailPage() {
                       Shipping Address
                     </p>
                     <p className="font-medium text-gray-900 whitespace-pre-line">
-                      {currentOrder.shippingAddress}
+                      <AddressDisplay order={currentOrder} type="shipping" />
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600 mb-1">
+                      Billing Address
+                    </p>
+                    <p className="font-medium text-gray-900 whitespace-pre-line">
+                      <AddressDisplay order={currentOrder} type="billing" />
                     </p>
                   </div>
                   {currentOrder.shippingMethod && (
@@ -481,33 +491,50 @@ export default function OrderDetailPage() {
                   Payment Details
                 </h2>
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Payment Method</span>
-                    <span className="font-medium">
-                      {currentOrder.payments?.[0]?.method || "Cash on Delivery"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Payment Status</span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        currentOrder.payments?.[0]?.status === "COMPLETED"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-amber-100 text-amber-700"
-                      }`}
-                    >
-                      {currentOrder.payments?.[0]?.status || "Pending"}
-                    </span>
-                  </div>
-                  {currentOrder.payments?.[0]?.transactionId && (
-                    <div className="pt-3 border-t border-gray-100">
-                      <p className="text-sm text-gray-600 mb-1">
-                        Transaction ID
-                      </p>
-                      <p className="font-mono bg-gray-50 px-3 py-1.5 rounded-lg text-sm">
-                        {currentOrder.payments[0].transactionId}
-                      </p>
-                    </div>
+                  {currentOrder.payments && currentOrder.payments.length > 0 ? (
+                    currentOrder.payments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="space-y-3"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">
+                            Payment Method
+                          </span>
+                          <span className="font-medium">
+                            {payment.method || "Cash on Delivery"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Payment Status</span>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              payment.status === "COMPLETED"
+                                ? "bg-green-100 text-green-700"
+                                : payment.status === "FLAGGED"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {payment.status || "Pending"}
+                          </span>
+                        </div>
+                        {payment.transactionId && (
+                          <div className="pt-3 border-t border-gray-100">
+                            <p className="text-sm text-gray-600 mb-1">
+                              Transaction ID
+                            </p>
+                            <p className="font-mono bg-gray-50 px-3 py-1.5 rounded-lg text-sm">
+                              {payment.transactionId}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      No payment record found.
+                    </p>
                   )}
                 </div>
               </div>

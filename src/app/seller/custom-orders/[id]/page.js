@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { orderService } from "@/services/orderService";
-import { productService } from "@/services/productService";
 import { Button } from "@/components/common";
+import AddressDisplay from "@/components/common/AddressDisplay";
 import {
   FaCheck,
   FaArrowLeft,
@@ -204,7 +204,18 @@ export default function SellerCustomOrderDetail() {
                     <div className="flex items-start">
                       <FaMapMarkerAlt className="text-gray-400 mr-2 mt-1" />
                       <span className="text-gray-900">
-                        {order.shippingAddress || "Not provided"}
+                        <AddressDisplay order={order} type="shipping" />
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">
+                      Billing Address
+                    </label>
+                    <div className="flex items-start">
+                      <FaMapMarkerAlt className="text-gray-400 mr-2 mt-1" />
+                      <span className="text-gray-900">
+                        <AddressDisplay order={order} type="billing" />
                       </span>
                     </div>
                   </div>
@@ -220,99 +231,130 @@ export default function SellerCustomOrderDetail() {
                   Order Items ({order.items.length})
                 </h2>
               </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  {order.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {item.customItemName}
-                        </h3>
-                        <span className="text-sm text-gray-500">
-                          Requested: {item.requestedQuantity}{" "}
-                          {item.unit || "units"}
-                        </span>
-                      </div>
+               <div className="p-6">
+                 <div className="space-y-4">
+                   {order.items.map((item) => {
+                     const productStock = item.product?.stock;
+                     const isInsufficientStock =
+                       productStock !== undefined &&
+                       productStock !== null &&
+                       item.requestedQuantity > productStock;
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">
-                            Verified Quantity
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.verifiedQuantity ?? ""}
-                            onChange={async (e) => {
-                              const value = e.target.value;
-                              updateItemField(
-                                item.id,
-                                "verifiedQuantity",
-                                value,
-                              );
-                              // Auto-populate price per unit from product price if not set
-                              if (value && (item.verifiedPrice === null || item.verifiedPrice === undefined)) {
-                                try {
-                                  const products = await productService.searchProducts({ q: item.customItemName, limit: 1 });
-                                  if (products?.products?.length > 0) {
-                                    const product = products.products[0];
-                                    updateItemField(item.id, "verifiedPrice", product.price.toString());
+                     return (
+                     <div
+                       key={item.id}
+                       className={`border rounded-lg p-4 ${
+                         isInsufficientStock
+                           ? "border-red-300 bg-red-50"
+                           : "border-gray-200 hover:shadow-md transition-shadow"
+                       }`}
+                     >
+                       {isInsufficientStock && (
+                         <div className="mb-3 px-3 py-2 bg-red-100 border border-red-200 rounded-md">
+                           <p className="text-xs font-medium text-red-700">
+                             Insufficient stock: requested {item.requestedQuantity}{" "}
+                             {item.unit || "units"} but only {productStock} available
+                           </p>
+                         </div>
+                       )}
+                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                         <h3 className="text-lg font-semibold text-gray-900">
+                           {item.customItemName}
+                         </h3>
+                         <span className="text-sm text-gray-500">
+                           Requested: {item.requestedQuantity}{" "}
+                           {item.unit || "units"}
+                         </span>
+                       </div>
+
+                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                         <div>
+                           <label className="block text-xs font-medium text-gray-500 mb-1">
+                             Verified Quantity
+                           </label>
+                           <input
+                             type="number"
+                             step="0.01"
+                             value={item.verifiedQuantity ?? ""}
+                             onChange={async (e) => {
+                                const value = e.target.value;
+                                updateItemField(
+                                  item.id,
+                                  "verifiedQuantity",
+                                  value,
+                                );
+                                if (value && (item.verifiedPrice === null || item.verifiedPrice === undefined)) {
+                                  try {
+                                    const result = await orderService.autoPriceItem(id, item.customItemName);
+                                    if (result.price !== null) {
+                                      updateItemField(item.id, "verifiedPrice", result.price.toString());
+                                    }
+                                  } catch (error) {
+                                    console.error("Error auto-pricing item:", error);
                                   }
-                                } catch (error) {
-                                  console.error("Error searching for product:", error);
                                 }
-                              }
-                            }}
-                            placeholder="0.00"
-                            disabled={!isSeller && !isAdmin}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">
-                            Price per Unit
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.verifiedPrice ?? ""}
-                            onChange={(e) =>
-                              updateItemField(
-                                item.id,
-                                "verifiedPrice",
-                                e.target.value,
-                              )
-                            }
-                            placeholder="0.00"
-                            disabled={!isSeller && !isAdmin}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">
-                            Status
-                          </label>
-                          <select
-                            value={item.status || "AVAILABLE"}
-                            onChange={(e) =>
-                              updateItemField(item.id, "status", e.target.value)
-                            }
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            disabled={!isSeller && !isAdmin}
-                          >
-                            <option value="AVAILABLE">Available</option>
-                            <option value="UNAVAILABLE">Unavailable</option>
-                            <option value="ADJUSTED">Adjusted</option>
-                          </select>
-                        </div>
+                              }}
+                             placeholder="0.00"
+                             disabled={!isSeller && !isAdmin}
+                             className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:border-blue-500 ${
+                               isInsufficientStock
+                                 ? "border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500"
+                                 : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                             }`}
+                           />
+                         </div>
+                         <div>
+                           <label className="block text-xs font-medium text-gray-500 mb-1">
+                             Price per Unit
+                           </label>
+                           <input
+                             type="number"
+                             step="0.01"
+                             value={item.verifiedPrice ?? ""}
+                             onChange={(e) =>
+                               updateItemField(
+                                 item.id,
+                                 "verifiedPrice",
+                                 e.target.value,
+                               )
+                             }
+                             placeholder="0.00"
+                             disabled={!isSeller && !isAdmin}
+                             className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:border-blue-500 ${
+                               isInsufficientStock
+                                 ? "border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500"
+                                 : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                             }`}
+                           />
+                         </div>
+                         <div>
+                           <label className="block text-xs font-medium text-gray-500 mb-1">
+                             Status
+                           </label>
+                           <select
+                             value={item.status || "AVAILABLE"}
+                             onChange={(e) =>
+                               updateItemField(item.id, "status", e.target.value)
+                             }
+                             className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:border-blue-500 ${
+                               isInsufficientStock
+                                 ? "border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500"
+                                 : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                             }`}
+                             disabled={!isSeller && !isAdmin}
+                           >
+                             <option value="AVAILABLE">Available</option>
+                             <option value="UNAVAILABLE">Unavailable</option>
+                             <option value="ADJUSTED">Adjusted</option>
+                           </select>
+                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-500 mb-1">
                             Item Total
                           </label>
-                          <span className="text-lg font-bold text-blue-600">
+                          <span className={`text-lg font-bold ${
+                            isInsufficientStock ? "text-red-600" : "text-blue-600"
+                          }`}>
                             $
                             {(
                               Number(item.verifiedQuantity || 0) *
@@ -320,31 +362,36 @@ export default function SellerCustomOrderDetail() {
                             ).toFixed(2)}
                           </span>
                         </div>
-                      </div>
+                       </div>
 
-                      <div className="mt-3">
-                        <label className="block text-xs font-medium text-gray-500 mb-1">
-                          Seller Notes
-                        </label>
-                        <input
-                          type="text"
-                          value={item.sellerNotes || ""}
-                          onChange={(e) =>
-                            updateItemField(
-                              item.id,
-                              "sellerNotes",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="Add notes for this item..."
-                          disabled={!isSeller && !isAdmin}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                       <div className="mt-3">
+                         <label className="block text-xs font-medium text-gray-500 mb-1">
+                           Seller Notes
+                         </label>
+                         <input
+                           type="text"
+                           value={item.sellerNotes || ""}
+                           onChange={(e) =>
+                             updateItemField(
+                               item.id,
+                               "sellerNotes",
+                               e.target.value,
+                             )
+                           }
+                           placeholder="Add notes for this item..."
+                           disabled={!isSeller && !isAdmin}
+                           className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:border-blue-500 ${
+                             isInsufficientStock
+                               ? "border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500"
+                               : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                           }`}
+                         />
+                       </div>
+                     </div>
+                     );
+                   })}
+                 </div>
+               </div>
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
@@ -17,7 +17,78 @@ import {
   FaMagic,
 } from "react-icons/fa";
 
-export default function SearchPage() {
+// Voice search uses the browser's native Web Speech API (SpeechRecognition).
+// This requires no model download and no ML runtime, so it stays well within
+// serverless limits and works immediately in supported browsers (Chrome/Edge/
+// Safari). recognitionStart() resolves with the transcribed text.
+function getSpeechRecognition() {
+  if (typeof window === "undefined") return null;
+  const Ctor =
+    window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  if (!Ctor) return null;
+  const recognition = new Ctor();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  return recognition;
+}
+
+function recognitionStart(onInstance) {
+  return new Promise((resolve, reject) => {
+    const recognition = getSpeechRecognition();
+    if (!recognition) {
+      reject(
+        new Error(
+          "Speech recognition is not supported in this browser. Try Chrome or Edge.",
+        ),
+      );
+      return;
+    }
+
+    // Expose the instance so callers can stop it (e.g. on user toggle).
+    if (typeof onInstance === "function") onInstance(recognition);
+
+    let settled = false;
+    const settle = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      fn(value);
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = (event?.results?.[0]?.[0]?.transcript || "").trim();
+      settle(resolve, transcript);
+    };
+    recognition.onerror = (event) => {
+      const error = event?.error || "speech-recognition-error";
+      // Non-fatal errors: "no-speech" / "aborted" (user cancelled) and "network"
+      // (speech service unreachable/blocked — common in Firefox/Safari or when the
+      // browser cannot reach the recognition backend). Resolve with an empty
+      // transcript so the UI shows a friendly message instead of throwing.
+      if (
+        error === "no-speech" ||
+        error === "aborted" ||
+        error === "network"
+      ) {
+        settle(resolve, "");
+      } else {
+        settle(reject, new Error(error));
+      }
+    };
+    recognition.onend = () => {
+      // If we get here without a result, treat it as no speech.
+      settle(resolve, "");
+    };
+
+    try {
+      recognition.start();
+    } catch (err) {
+      settle(reject, err);
+    }
+  });
+}
+
+function SearchPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -36,14 +107,37 @@ export default function SearchPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [aiPowered, setAiPowered] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
+  const [voiceStatus, setVoiceStatus] = useState("");
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    // Load recent searches from localStorage
-    const saved = localStorage.getItem("recentSearches");
-    if (saved) {
-      setRecentSearches(JSON.parse(saved));
+    if (isAuthenticated) {
+      // Recent searches are owned by the backend (SearchHistory table).
+      (async () => {
+        try {
+          const searches = await productService.getRecentSearches();
+          if (Array.isArray(searches)) setRecentSearches(searches);
+        } catch (error) {
+          console.error("Error loading recent searches:", error);
+        }
+      })();
+    } else {
+      const saved = localStorage.getItem("recentSearches");
+      if (saved) {
+        setRecentSearches(JSON.parse(saved));
+      }
     }
-  }, []);
+  }, [isAuthenticated]);
+
+  const searchQuery = searchParams.get("q") || "";
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setQuery(searchQuery);
+      handleSearch(searchQuery);
+    }
+  }, [searchQuery]);
 
   // Debounced suggestion fetching
   useEffect(() => {
@@ -72,7 +166,12 @@ export default function SearchPage() {
       ...recentSearches.filter((s) => s !== searchQuery),
     ].slice(0, 10);
     setRecentSearches(updated);
-    localStorage.setItem("recentSearches", JSON.stringify(updated));
+
+    // Authenticated users: history is persisted server-side by /api/search.
+    // Anonymous users: fall back to localStorage.
+    if (!isAuthenticated) {
+      localStorage.setItem("recentSearches", JSON.stringify(updated));
+    }
   };
 
   const handleSearch = async (searchQuery = query) => {
@@ -103,6 +202,7 @@ export default function SearchPage() {
   };
 
   const handleSuggestionClick = (suggestion) => {
+    setVoiceError("");
     setQuery(suggestion);
     setSuggestions([]);
     handleSearch(suggestion);
@@ -111,69 +211,81 @@ export default function SearchPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setVoiceError("");
     setSuggestions([]);
     router.push(`/search?q=${encodeURIComponent(query)}`);
     handleSearch();
   };
 
-  const clearRecentSearches = () => {
+  const clearRecentSearches = async () => {
     setRecentSearches([]);
-    localStorage.removeItem("recentSearches");
+
+    if (isAuthenticated) {
+      try {
+        await productService.clearRecentSearches();
+      } catch (error) {
+        console.error("Error clearing recent searches:", error);
+      }
+    } else {
+      localStorage.removeItem("recentSearches");
+    }
   };
 
-  const handleVoiceSearch = () => {
-    if (
-      !("webkitSpeechRecognition" in window) &&
-      !("SpeechRecognition" in window)
-    ) {
-      alert("Voice search is not supported in your browser");
+  const recognitionRef = useRef(null);
+
+  const stopVoiceSearch = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // ignore
+      }
+    }
+  };
+
+  const handleVoiceSearch = async () => {
+    // If we're already listening, stop and let the handlers process the result.
+    if (isListening) {
+      stopVoiceSearch();
       return;
     }
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    setVoiceError("");
 
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
+    if (!getSpeechRecognition()) {
+      setVoiceError(
+        "Voice search is not supported in this browser. Try Chrome or Edge.",
+      );
+      return;
+    }
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setQuery(transcript);
-      handleSearch(transcript);
-      router.push(`/search?q=${encodeURIComponent(transcript)}`);
-    };
-
-    recognition.start();
-  };
-
-  const handleAISearch = async () => {
-    if (!query.trim()) return;
-
-    setLoading(true);
-    setAiPowered(true);
-    saveRecentSearch(query);
+    setVoiceStatus("Listening… speak now");
+    setIsListening(true);
 
     try {
-      // AI-powered semantic search
-      const { api } = await import("@/services");
-      const response = await api.get("/api/search", {
-        params: {
-          q: query,
-          ai: true,
-          ...filters,
-        },
+      const transcript = await recognitionStart((instance) => {
+        recognitionRef.current = instance;
       });
-      setSearchResults(response.products || []);
-    } catch (error) {
-      console.error("AI search error:", error);
-      handleSearch();
+
+      if (!transcript) {
+        setVoiceError("No speech detected. Please try again.");
+        return;
+      }
+
+      setQuery(transcript);
+      router.push(`/search?q=${encodeURIComponent(transcript)}`);
+      handleSearch(transcript);
+    } catch (err) {
+      console.error("Voice transcription error:", err);
+      setVoiceError(
+        "Voice search failed: " +
+          (err?.message || "unable to transcribe audio") +
+          ". Check your microphone and try again.",
+      );
     } finally {
-      setLoading(false);
+      recognitionRef.current = null;
+      setIsListening(false);
+      setVoiceStatus("");
     }
   };
 
@@ -192,70 +304,100 @@ export default function SearchPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-6">
             Search Products
           </h1>
 
           {/* Search Form */}
           <form onSubmit={handleSubmit} className="relative">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <Input
+                  ref={inputRef}
                   type="text"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    setVoiceError("");
+                    setQuery(e.target.value);
+                  }}
                   placeholder="Search for products..."
-                  className="pl-10 pr-4 py-3 text-lg"
+                  className="pl-10 pr-4 py-3 text-lg w-full"
                 />
                 <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
 
                 {/* Suggestions Dropdown */}
                 {suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 z-50">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 z-50 max-h-60 overflow-y-auto">
                     {suggestions.map((suggestion, i) => (
                       <button
                         key={i}
                         type="button"
                         onClick={() => handleSuggestionClick(suggestion)}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-2 touch-manipulation"
                       >
-                        <FaSearch className="text-gray-400 text-xs" />
-                        {suggestion}
+                        <FaSearch className="text-gray-400 text-xs flex-shrink-0" />
+                        <span className="truncate">{suggestion}</span>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
 
-              <Button type="submit" className="px-6">
-                Search
-              </Button>
+              <div className="flex gap-2 sm:w-auto">
+                <Button
+                  type="submit"
+                  className="px-4 sm:px-6 flex-1 sm:flex-none"
+                >
+                  Search
+                </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleVoiceSearch}
-                className="px-4"
-                title="Voice search"
-              >
-                <FaMicrophone
-                  className={isListening ? "text-red-500 animate-pulse" : ""}
-                />
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleVoiceSearch}
+                  className="px-3 sm:px-4"
+                  title="Voice search"
+                >
+                  <FaMicrophone
+                    className={isListening ? "text-red-500 animate-pulse" : ""}
+                  />
+                </Button>
 
-              <Button
-                type="button"
-                variant={aiPowered ? "primary" : "outline"}
-                onClick={handleAISearch}
-                className="px-4 flex items-center gap-2"
-                title="AI-powered search"
-              >
-                <FaMagic />
-                AI Search
-              </Button>
+                <Button
+                  type="button"
+                  variant={aiPowered ? "primary" : "outline"}
+                  onClick={() => handleSearch()}
+                  className="px-3 sm:px-4 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                  title="AI-powered search"
+                >
+                  <FaMagic className="text-xs sm:text-sm" />
+                  <span className="hidden sm:inline">AI</span>
+                  <span className="sm:hidden">AI</span>
+                </Button>
+              </div>
             </div>
           </form>
+
+          {voiceError && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <span className="flex-1">{voiceError}</span>
+              <button
+                type="button"
+                onClick={() => setVoiceError("")}
+                className="text-amber-500 hover:text-amber-700"
+                aria-label="Dismiss"
+              >
+                <FaTimes />
+              </button>
+            </div>
+          )}
+
+          {voiceStatus && (
+            <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              <span className="flex-1">{voiceStatus}</span>
+            </div>
+          )}
 
           {/* Quick Filters */}
           <div className="flex flex-wrap items-center gap-4 mt-4">
@@ -268,7 +410,7 @@ export default function SearchPage() {
             </button>
 
             {query && (
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 block sm:inline">
                 {searchResults.length} results for "{query}"
                 {aiPowered && (
                   <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">
@@ -282,7 +424,7 @@ export default function SearchPage() {
           {/* Advanced Filters */}
           {showFilters && (
             <Card className="p-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Category
@@ -350,8 +492,13 @@ export default function SearchPage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-2">
-                <Button onClick={() => handleSearch()}>Apply Filters</Button>
+              <div className="mt-4 flex flex-col xs:flex-row gap-2">
+                <Button
+                  onClick={() => handleSearch()}
+                  className="w-full xs:w-auto"
+                >
+                  Apply Filters
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -362,6 +509,7 @@ export default function SearchPage() {
                       sortBy: "relevance",
                     });
                   }}
+                  className="w-full xs:w-auto"
                 >
                   Clear
                 </Button>
@@ -391,7 +539,7 @@ export default function SearchPage() {
                   </span>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                 {searchResults.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
@@ -406,7 +554,7 @@ export default function SearchPage() {
               <p className="text-gray-500 mb-6">
                 Try different keywords or filters
               </p>
-              <Button onClick={() => handleAISearch()}>
+              <Button onClick={() => handleSearch()}>
                 <FaMagic className="mr-2" />
                 Try AI Search
               </Button>
@@ -462,5 +610,13 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
+      <SearchPageInner />
+    </Suspense>
   );
 }

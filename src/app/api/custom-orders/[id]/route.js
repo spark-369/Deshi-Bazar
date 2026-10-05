@@ -8,7 +8,10 @@ export async function GET(request, { params }) {
     const token = extractToken(authHeader);
 
     if (!token) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const user = await verifyToken(token);
@@ -21,19 +24,61 @@ export async function GET(request, { params }) {
 
     const customOrder = await prisma.customOrder.findUnique({
       where: { id },
-        include: {
-          items: true,
-          buyer: {
-            select: { id: true, name: true, email: true, phone: true }
+      include: {
+        items: {
+          include: {
+            product: {
+              select: { id: true, name: true, stock: true, images: true },
+            },
           },
-          seller: {
-            select: { id: true, name: true, email: true, phone: true }
-          }
-        }
+        },
+        buyer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            profile: {
+              select: {
+                address: true,
+                city: true,
+                division: true,
+                district: true,
+                postalCode: true,
+                zipCode: true,
+                country: true,
+              },
+            },
+          },
+        },
+        seller: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            profile: {
+              select: {
+                address: true,
+                city: true,
+                division: true,
+                district: true,
+                postalCode: true,
+                zipCode: true,
+                country: true,
+              },
+            },
+          },
+        },
+        payments: true,
+      },
     });
 
     if (!customOrder) {
-      return NextResponse.json({ error: "Custom order not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Custom order not found" },
+        { status: 404 },
+      );
     }
 
     // Auth check: buyer, seller, or admin
@@ -48,7 +93,10 @@ export async function GET(request, { params }) {
     return NextResponse.json(customOrder);
   } catch (error) {
     console.error("Get custom order error:", error);
-    return NextResponse.json({ error: "Failed to fetch custom order" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch custom order" },
+      { status: 500 },
+    );
   }
 }
 
@@ -58,7 +106,10 @@ export async function PUT(request, { params }) {
     const token = extractToken(authHeader);
 
     if (!token) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const user = await verifyToken(token);
@@ -69,15 +120,30 @@ export async function PUT(request, { params }) {
     const resolvedParams = await params;
     const { id } = resolvedParams;
     const body = await request.json();
-    const { action, items, shippingCost, status, shippingMethod, shippingAddress, notes, buyerLatitude, buyerLongitude, sellerLatitude, sellerLongitude } = body;
+    const {
+      action,
+      items,
+      shippingCost,
+      status,
+      shippingMethod,
+      shippingAddress,
+      notes,
+      buyerLatitude,
+      buyerLongitude,
+      sellerLatitude,
+      sellerLongitude,
+    } = body;
 
     const customOrder = await prisma.customOrder.findUnique({
       where: { id },
-      include: { seller: true }
+      include: { seller: true },
     });
 
     if (!customOrder) {
-      return NextResponse.json({ error: "Custom order not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Custom order not found" },
+        { status: 404 },
+      );
     }
 
     // Check permissions
@@ -88,28 +154,48 @@ export async function PUT(request, { params }) {
     // Handle order-level field updates (for seller/admin)
     if (isSeller || isAdmin) {
       // Check if this is a direct field update (not an action)
-      const isFieldUpdate = status !== undefined || shippingAddress !== undefined || notes !== undefined || shippingMethod !== undefined;
-      
+      const isFieldUpdate =
+        status !== undefined ||
+        shippingAddress !== undefined ||
+        notes !== undefined ||
+        shippingMethod !== undefined;
+
       if (isFieldUpdate && !action) {
         const updateData = {};
-        
+
         if (status !== undefined) {
-          const validStatuses = ["PENDING", "VERIFIED", "CONFIRMED", "PROCESSING", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"];
+          const validStatuses = [
+            "PENDING",
+            "VERIFIED",
+            "CONFIRMED",
+            "PROCESSING",
+            "OUT_FOR_DELIVERY",
+            "SHIPPED",
+            "DELIVERED",
+            "CANCELLED",
+          ];
           if (!validStatuses.includes(status)) {
-            return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+            return NextResponse.json(
+              { error: "Invalid status" },
+              { status: 400 },
+            );
           }
           updateData.status = status;
         }
-        if (shippingAddress !== undefined) updateData.shippingAddress = shippingAddress;
+        if (shippingAddress !== undefined)
+          updateData.shippingAddress = shippingAddress;
         if (notes !== undefined) updateData.notes = notes;
-        if (shippingMethod !== undefined) updateData.shippingMethod = shippingMethod;
+        if (shippingMethod !== undefined)
+          updateData.shippingMethod = shippingMethod;
 
         if (Object.keys(updateData).length > 0) {
           await prisma.customOrder.update({
             where: { id },
             data: updateData,
           });
-          return NextResponse.json({ message: "Custom order updated successfully" });
+          return NextResponse.json({
+            message: "Custom order updated successfully",
+          });
         }
       }
     }
@@ -118,12 +204,24 @@ export async function PUT(request, { params }) {
     if (isAdmin) {
       // Determine which field contains the status
       const statusToUpdate = status || action;
-      
+
       if (statusToUpdate && !["verify"].includes(action)) {
         // Validate status
-        const validStatuses = ["PENDING", "VERIFIED", "CONFIRMED", "PROCESSING", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"];
+        const validStatuses = [
+          "PENDING",
+          "VERIFIED",
+          "CONFIRMED",
+          "PROCESSING",
+          "OUT_FOR_DELIVERY",
+          "SHIPPED",
+          "DELIVERED",
+          "CANCELLED",
+        ];
         if (!validStatuses.includes(statusToUpdate)) {
-          return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+          return NextResponse.json(
+            { error: "Invalid status" },
+            { status: 400 },
+          );
         }
 
         await prisma.customOrder.update({
@@ -131,7 +229,9 @@ export async function PUT(request, { params }) {
           data: { status: statusToUpdate },
         });
 
-        return NextResponse.json({ message: "Custom order status updated successfully" });
+        return NextResponse.json({
+          message: "Custom order status updated successfully",
+        });
       }
     }
 
@@ -143,9 +243,28 @@ export async function PUT(request, { params }) {
     if (action === "verify") {
       // Only seller or admin can verify/edit
       if (!isSeller && !isAdmin) {
-        return NextResponse.json({ error: "Only seller or admin can verify orders" }, { status: 403 });
+        return NextResponse.json(
+          { error: "Only seller or admin can verify orders" },
+          { status: 403 },
+        );
       }
-      
+
+      // Respect an explicit status from the request (e.g. CONFIRMED,
+      // PROCESSING, SHIPPED, DELIVERED, CANCELLED). Default to VERIFIED
+      // to preserve backward compatibility with the original verify flow.
+      const validStatuses = [
+        "PENDING",
+        "VERIFIED",
+        "CONFIRMED",
+        "PROCESSING",
+        "OUT_FOR_DELIVERY",
+        "SHIPPED",
+        "DELIVERED",
+        "CANCELLED",
+      ];
+      const targetStatus =
+        status && validStatuses.includes(status) ? status : "VERIFIED";
+
       // Update items and recalculate totals
       let subtotal = 0;
       const updatedItems = [];
@@ -154,9 +273,10 @@ export async function PUT(request, { params }) {
         const itemId = itemData.id;
         const verifiedQty = parseFloat(itemData.verifiedQuantity || 0);
         const verifiedPrice = parseFloat(itemData.verifiedPrice || 0);
+        const itemTotal = verifiedQty * verifiedPrice;
 
         if (verifiedQty > 0 && verifiedPrice > 0) {
-          subtotal += verifiedQty * verifiedPrice;
+          subtotal += itemTotal;
         }
 
         updatedItems.push({
@@ -164,20 +284,25 @@ export async function PUT(request, { params }) {
           data: {
             verifiedQuantity: verifiedQty,
             verifiedPrice: verifiedPrice,
+            itemTotal,
             status: itemData.status || "AVAILABLE",
             sellerNotes: itemData.sellerNotes || null,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
       }
 
       // Calculate tax and shipping based on distance if coordinates provided
       let tax = subtotal * 0.1; // 10% tax
       let shippingCostCalc = 0;
-      
-      if (buyerLatitude !== undefined && buyerLongitude !== undefined &&
-          sellerLatitude !== undefined && sellerLongitude !== undefined &&
-          shippingMethod !== undefined) {
+
+      if (
+        buyerLatitude !== undefined &&
+        buyerLongitude !== undefined &&
+        sellerLatitude !== undefined &&
+        sellerLongitude !== undefined &&
+        shippingMethod !== undefined
+      ) {
         // Haversine formula to calculate distance between two points in kilometers
         const toRad = (value) => (value * Math.PI) / 180;
         const haversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -188,8 +313,10 @@ export async function PUT(request, { params }) {
           const lat2Rad = toRad(lat2);
           const a =
             Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.sin(dLon / 2) * Math.sin(dLon / 2) *
-            Math.cos(lat1Rad) * Math.cos(lat2Rad);
+            Math.sin(dLon / 2) *
+              Math.sin(dLon / 2) *
+              Math.cos(lat1Rad) *
+              Math.cos(lat2Rad);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           return R * c;
         };
@@ -197,22 +324,26 @@ export async function PUT(request, { params }) {
           parseFloat(buyerLatitude),
           parseFloat(buyerLongitude),
           parseFloat(sellerLatitude),
-          parseFloat(sellerLongitude)
+          parseFloat(sellerLongitude),
         );
         // Shipping cost per km based on shipping method
-        const ratePerKm = {
-          standard: 0.5,
-          express: 1.0,
-          overnight: 2.0,
-        }[shippingMethod] || 0.5;
+        const ratePerKm =
+          {
+            standard: 0.5,
+            express: 1.0,
+            overnight: 2.0,
+          }[shippingMethod] || 0.5;
         shippingCostCalc = distance * ratePerKm;
       } else {
         // Fallback to provided shipping cost or default
-        shippingCostCalc = shippingCost !== undefined ? parseFloat(shippingCost) : subtotal * 0.05; // 5% default
+        shippingCostCalc =
+          shippingCost !== undefined
+            ? parseFloat(shippingCost)
+            : subtotal * 0.05; // 5% default
       }
-      
+
       const total = subtotal + tax + shippingCostCalc;
-      
+
       await prisma.$transaction(async (tx) => {
         // Update items
         for (const update of updatedItems) {
@@ -223,23 +354,28 @@ export async function PUT(request, { params }) {
         await tx.customOrder.update({
           where: { id },
           data: {
-            status: "VERIFIED",
+            status: targetStatus,
             subtotal,
             tax,
             shippingCost: shippingCostCalc,
             total,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
       });
-      
-      return NextResponse.json({ message: "Custom order verified successfully" });
+
+      return NextResponse.json({
+        message: "Custom order verified successfully",
+      });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error) {
     console.error("Update custom order error:", error);
-    return NextResponse.json({ error: "Failed to update custom order" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update custom order" },
+      { status: 500 },
+    );
   }
 }
 
@@ -250,7 +386,10 @@ export async function DELETE(request, { params }) {
     const token = extractToken(authHeader);
 
     if (!token) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const user = await verifyToken(token);
@@ -269,7 +408,10 @@ export async function DELETE(request, { params }) {
     });
 
     if (!customOrder) {
-      return NextResponse.json({ error: "Custom order not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Custom order not found" },
+        { status: 404 },
+      );
     }
 
     // Check permissions
@@ -305,6 +447,9 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ message: "Custom order deleted successfully" });
   } catch (error) {
     console.error("Delete custom order error:", error);
-    return NextResponse.json({ error: "Failed to delete custom order" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete custom order" },
+      { status: 500 },
+    );
   }
 }

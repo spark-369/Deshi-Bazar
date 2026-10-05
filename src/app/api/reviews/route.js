@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyToken, extractToken } from "@/lib/auth";
-import { analyzeSentiment, detectFakeReview } from "@/lib/ai";
+import { analyzeSentiment, detectFakeReview, maskBadWords } from "@/lib/ai";
 
-// GET /api/reviews - Get reviews for a product
+// GET /api/reviews - Get reviews (by productId or user role-based)
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -11,23 +11,50 @@ export async function GET(request) {
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 10;
 
-    if (!productId) {
-      return NextResponse.json(
-        { error: "Product ID is required" },
-        { status: 400 },
-      );
+    const authHeader = request.headers.get("authorization");
+    const token = extractToken(authHeader);
+    let currentUser = null;
+    if (token) {
+      currentUser = await verifyToken(token);
     }
 
-    const where = { productId };
+    const where = {};
+    if (productId) {
+      where.productId = productId;
+    }
+
+    if (currentUser) {
+      if (currentUser.role === "ADMIN") {
+        // Admin sees all reviews
+      } else if (currentUser.role === "SELLER") {
+        // Seller sees reviews for their products only
+        where.product = {
+          sellerId: currentUser.id,
+        };
+      } else {
+        // Buyer sees their own reviews
+        where.userId = currentUser.id;
+      }
+    } else if (!productId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
 
     const [reviews, total] = await Promise.all([
       prisma.review.findMany({
         where,
         include: {
           user: {
+            select: { id: true, name: true },
+          },
+          product: {
             select: {
               id: true,
               name: true,
+              images: true,
+              category: { select: { name: true } },
             },
           },
         },
@@ -38,32 +65,53 @@ export async function GET(request) {
       prisma.review.count({ where }),
     ]);
 
-    // Calculate average rating
-    const allReviews = await prisma.review.findMany({
-      where,
-      select: { rating: true },
-    });
+    // Return all reviews (positive and negative). Fake/flagged reviews are
+    // still shown but surfaced via the "Flagged as Fake" badge on the client.
+    // For NEGATIVE reviews, mask offensive ("bad") words using sentiment analysis.
+    const reviewsWithMasking = await Promise.all(
+      reviews.map(async (r) => {
+        const isNegative = r.sentiment === "NEGATIVE";
+        const content = isNegative ? await maskBadWords(r.content) : r.content;
+        const title = isNegative ? await maskBadWords(r.title) : r.title;
 
-    const avgRating =
-      allReviews.length > 0
-        ? allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
-        : 0;
-
-    // Filter out fake reviews by default (optional)
-    const filteredReviews = reviews.filter((r) => !r.isFake);
+        return {
+          id: r.id,
+          userId: r.userId,
+          productId: r.productId,
+          rating: r.rating,
+          title,
+          comment: content,
+          content,
+          isVerifiedPurchase: r.isVerified,
+          isFlagged: r.isFake,
+          helpfulCount: r.helpfulCount || 0,
+          response: r.response || null,
+          images: r.images || [],
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+          aiAnalysis: {
+            sentiment: r.sentiment,
+            confidence:
+              r.sentimentScore !== null && r.sentimentScore !== undefined
+                ? Math.abs(r.sentimentScore)
+                : null,
+            fakeDetection: {
+              isFake: r.isFake,
+              fakeScore: r.fakeScore,
+            },
+          },
+          user: r.user,
+          product: r.product,
+        };
+      }),
+    );
 
     return NextResponse.json({
-      reviews: filteredReviews,
+      reviews: reviewsWithMasking,
       stats: {
         total,
-        averageRating: avgRating,
-        distribution: {
-          5: allReviews.filter((r) => r.rating === 5).length,
-          4: allReviews.filter((r) => r.rating === 4).length,
-          3: allReviews.filter((r) => r.rating === 3).length,
-          2: allReviews.filter((r) => r.rating === 2).length,
-          1: allReviews.filter((r) => r.rating === 1).length,
-        },
+        averageRating: 0,
+        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
       },
       pagination: {
         page,
@@ -116,7 +164,6 @@ export async function POST(request) {
       );
     }
 
-    // Check if product exists
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -125,12 +172,8 @@ export async function POST(request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    // Check if user already reviewed this product
     const existingReview = await prisma.review.findFirst({
-      where: {
-        userId: user.id,
-        productId,
-      },
+      where: { userId: user.id, productId },
     });
 
     if (existingReview) {
@@ -140,31 +183,30 @@ export async function POST(request) {
       );
     }
 
-    // Check if user purchased the product
     const order = await prisma.order.findFirst({
       where: {
         userId: user.id,
         status: { in: ["DELIVERED", "CONFIRMED"] },
-        items: {
-          some: { productId },
-        },
+        items: { some: { productId } },
       },
     });
 
     const isVerified = !!order;
 
-    // Analyze sentiment
     const sentimentResult = content
-      ? await analyzeSentiment(content)
+      ? await analyzeSentiment(
+          "Rating: " + rating + "Title: " + title + "Content: " + content,
+        )
       : { score: 0, label: "NEUTRAL" };
 
-    // Detect fake review
-    const fakeReviewResult = await detectFakeReview(content || "", {
-      isVerified,
-      userId: user.id,
-    });
+    const fakeReviewResult = await detectFakeReview(
+      "Rating: " + rating + "Title: " + title + "Content: " + content || "",
+      {
+        isVerified,
+        userId: user.id,
+      },
+    );
 
-    // Create review
     const review = await prisma.review.create({
       data: {
         userId: user.id,
@@ -173,15 +215,19 @@ export async function POST(request) {
         title,
         content,
         sentimentScore: sentimentResult.score,
+        sentiment: sentimentResult.label,
         isVerified,
         isFake: fakeReviewResult.isFake,
         fakeScore: fakeReviewResult.fakeScore,
       },
       include: {
-        user: {
+        user: { select: { id: true, name: true } },
+        product: {
           select: {
             id: true,
             name: true,
+            images: true,
+            category: { select: { name: true } },
           },
         },
       },
@@ -190,8 +236,10 @@ export async function POST(request) {
     return NextResponse.json(
       {
         ...review,
+        isFlagged: review.isFake,
         aiAnalysis: {
-          sentiment: sentimentResult,
+          sentiment: review.sentiment,
+          confidence: Math.abs(sentimentResult.score),
           fakeDetection: fakeReviewResult,
         },
       },
@@ -242,45 +290,56 @@ export async function PUT(request) {
       return NextResponse.json({ error: "Review not found" }, { status: 404 });
     }
 
-    if (existingReview.userId !== user.id) {
+    if (
+      existingReview.userId !== user.id &&
+      user.role !== "ADMIN"
+    ) {
       return NextResponse.json(
         { error: "Not authorized to update this review" },
         { status: 403 },
       );
     }
 
-    // Re-analyze if content changed
     let sentimentScore = existingReview.sentimentScore;
+    let sentiment = existingReview.sentiment;
     let fakeScore = existingReview.fakeScore;
 
     if (content && content !== existingReview.content) {
       const sentimentResult = await analyzeSentiment(content);
       sentimentScore = sentimentResult.score;
-
+      sentiment = sentimentResult.label;
       const fakeResult = await detectFakeReview(content, {});
       fakeScore = fakeResult.fakeScore;
     }
 
     const review = await prisma.review.update({
       where: { id: reviewId },
-      data: {
-        rating,
-        title,
-        content,
-        sentimentScore,
-        fakeScore,
-      },
+      data: { rating, title, content, sentimentScore, sentiment, fakeScore },
       include: {
-        user: {
+        user: { select: { id: true, name: true } },
+        product: {
           select: {
             id: true,
             name: true,
+            images: true,
+            category: { select: { name: true } },
           },
         },
       },
     });
 
-    return NextResponse.json(review);
+    return NextResponse.json({
+      ...review,
+      isFlagged: review.isFake,
+      aiAnalysis: {
+        sentiment: review.sentiment,
+        confidence:
+          sentimentScore !== null && sentimentScore !== undefined
+            ? Math.abs(sentimentScore)
+            : null,
+        fakeDetection: { isFake: review.isFake, fakeScore: review.fakeScore },
+      },
+    });
   } catch (error) {
     console.error("Update review error:", error);
     return NextResponse.json(
@@ -326,7 +385,6 @@ export async function DELETE(request) {
       return NextResponse.json({ error: "Review not found" }, { status: 404 });
     }
 
-    // Allow deletion by review owner or admin
     if (existingReview.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Not authorized to delete this review" },
@@ -334,9 +392,7 @@ export async function DELETE(request) {
       );
     }
 
-    await prisma.review.delete({
-      where: { id: reviewId },
-    });
+    await prisma.review.delete({ where: { id: reviewId } });
 
     return NextResponse.json({ message: "Review deleted successfully" });
   } catch (error) {

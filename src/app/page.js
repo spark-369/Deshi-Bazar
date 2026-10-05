@@ -38,7 +38,25 @@ export default function HomePage() {
 
   // Combine categories with grocery
   const allCategories = [...categories.map((cat) => ({ ...cat }))];
-  const slidesToShow = 3;
+  const [slidesToShow, setSlidesToShow] = useState(1);
+
+  // Responsive slides calculation
+  useEffect(() => {
+    const updateSlides = () => {
+      if (typeof window !== 'undefined') {
+        if (window.innerWidth < 640) {
+          setSlidesToShow(1);
+        } else if (window.innerWidth < 1024) {
+          setSlidesToShow(2);
+        } else {
+          setSlidesToShow(3);
+        }
+      }
+    };
+    updateSlides();
+    window.addEventListener('resize', updateSlides);
+    return () => window.removeEventListener('resize', updateSlides);
+  }, []);
   const maxSlide = Math.max(0, allCategories.length - slidesToShow);
 
   const nextSlide = () => {
@@ -156,54 +174,54 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white overflow-hidden">
+      <section className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white overflow-hidden flex items-center min-h-[50vh]">
         {/* Animated Background */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-          <div className="absolute -top-20 -right-40 w-80 h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-          <div className="absolute -bottom-40 left-1/3 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
+          <div className="absolute -top-40 -left-40 w-64 h-64 sm:w-80 sm:h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+          <div className="absolute -top-20 -right-40 w-64 h-64 sm:w-80 sm:h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+          <div className="absolute -bottom-40 left-1/3 w-64 h-64 sm:w-80 sm:h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik01MCAwIEw1MCAxMDAgTTAgNTAgTDEwMCA1MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLW9wYWNpdHk9Ii4wNSIvPgo8L3N2Zz4K')] opacity-20"></div>
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-16">
           <div className="text-center max-w-4xl mx-auto">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-8">
-              <FaBolt className="text-yellow-400" />
-              <span className="text-sm font-medium text-white">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-4">
+              <FaBolt className="text-yellow-400 text-sm" />
+              <span className="text-xs font-medium text-white">
                 AI-Powered Smart Shopping Platform
               </span>
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold mb-8 leading-tight">
+            <h1 className="text-3xl md:text-5xl font-bold mb-4 leading-tight">
               Shop Smarter with{" "}
               <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 AI Intelligence
               </span>
             </h1>
 
-            <p className="text-xl md:text-2xl text-blue-100 mb-10 leading-relaxed max-w-3xl mx-auto">
+            <p className="text-base md:text-lg text-blue-100 mb-6 leading-relaxed max-w-3xl mx-auto">
               Experience the future of e-commerce with intelligent price
               negotiation, personalized recommendations, and seamless shopping
               powered by cutting-edge AI technology.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
               <Link href="/products">
                 <Button
-                  size="lg"
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
+                  size="md"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-6 py-2.5 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
                 >
-                  <FaBox className="text-xl" />
+                  <FaBox className="text-lg" />
                   Start Shopping
-                  <FaArrowRight className="ml-2" />
+                  <FaArrowRight className="ml-1.5" />
                 </Button>
               </Link>
               <Link href="/register">
                 <Button
-                  size="lg"
+                  size="md"
                   variant="outline"
-                  className="border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-semibold rounded-xl backdrop-blur-sm transition-all duration-300"
+                  className="border-white/30 text-white hover:bg-white/10 px-6 py-2.5 text-base font-semibold rounded-xl backdrop-blur-sm transition-all duration-300"
                 >
                   Create Account
                 </Button>
@@ -211,17 +229,17 @@ export default function HomePage() {
             </div>
 
             {/* Trust Indicators */}
-            <div className="mt-12 flex flex-wrap justify-center gap-8 text-sm text-blue-200">
-              <div className="flex items-center gap-2">
-                <FaShieldAlt className="text-green-400" />
+            <div className="mt-6 sm:mt-8 flex flex-wrap justify-center gap-3 sm:gap-6 text-xs sm:text-sm text-blue-200">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <FaShieldAlt className="text-green-400 text-sm sm:text-base" />
                 <span>Secure Payments</span>
               </div>
-              <div className="flex items-center gap-2">
-                <FaTruck className="text-blue-400" />
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <FaTruck className="text-blue-400 text-sm sm:text-base" />
                 <span>Free Shipping</span>
               </div>
-              <div className="flex items-center gap-2">
-                <FaHeadset className="text-purple-400" />
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <FaHeadset className="text-purple-400 text-sm sm:text-base" />
                 <span>24/7 Support</span>
               </div>
             </div>
@@ -234,21 +252,21 @@ export default function HomePage() {
 
       {/* Stats Bar */}
       <section className="relative -mt-1 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
             {dynamicStats.map((stat, index) => (
               <div
                 key={index}
                 className="text-center group"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-lg mb-4 group-hover:scale-110 transition-transform duration-300">
+                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white shadow-lg mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
                   {stat.icon}
                 </div>
-                <div className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-0.5 sm:mb-1">
                   {stat.value}
                 </div>
-                <div className="text-gray-500 text-sm">{stat.label}</div>
+                <div className="text-gray-500 text-xs sm:text-sm">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -256,20 +274,20 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-white">
+      <section className="py-12 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-10 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
               Why Choose AI Shop?
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <p className="text-base sm:text-xl text-gray-600 max-w-3xl mx-auto px-4 sm:px-0">
               Our platform combines the best of traditional e-commerce with
               cutting-edge AI technology to deliver an unmatched shopping
               experience.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
             {features.map((feature, index) => (
               <div
                 key={index}
@@ -279,7 +297,7 @@ export default function HomePage() {
                 <div
                   className={`absolute inset-0 bg-gradient-to-br ${feature.bgColor} rounded-2xl -z-10 transform group-hover:scale-105 transition-transform duration-300`}
                 ></div>
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 h-full border border-gray-100 hover:border-blue-200 hover:shadow-xl transition-all duration-300">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 sm:p-8 h-full border border-gray-100 hover:border-blue-200 hover:shadow-xl transition-all duration-300">
                   <div className="w-16 h-16 rounded-2xl bg-white shadow-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                     {feature.icon}
                   </div>
@@ -319,15 +337,16 @@ export default function HomePage() {
                   }}
                 >
                   {allCategories.map((category) => (
-                    <Link
-                      key={category.id}
-                      href={
-                        category.id === "grocery"
-                          ? "/grocery"
-                          : `/products?categoryId=${category.id}`
-                      }
-                      className={`flex-shrink-0 ${100 / slidesToShow}% px-4`}
-                    >
+                     <Link
+                       key={category.id}
+                       href={
+                         category.id === "grocery"
+                           ? "/grocery"
+                           : `/products?categoryId=${category.id}`
+                       }
+                       className="flex-shrink-0 px-4"
+                       style={{ width: `${100 / slidesToShow}%` }}
+                     >
                       <div className="group cursor-pointer">
                         <div className="relative aspect-[4/3] rounded-2xl overflow-hidden mb-4 bg-gradient-to-br from-gray-100 to-gray-200">
                           {category.image ? (
@@ -360,17 +379,17 @@ export default function HomePage() {
                 <>
                   <button
                     onClick={prevSlide}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 bg-white/90 hover:bg-white shadow-lg rounded-full p-3 transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:-translate-x-4 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 sm:p-3 transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
                     aria-label="Previous slide"
                   >
-                    <FaChevronLeft className="text-gray-700 w-5 h-5" />
+                    <FaChevronLeft className="text-gray-700 w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <button
                     onClick={nextSlide}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 bg-white/90 hover:bg-white shadow-lg rounded-full p-3 transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-4 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 sm:p-3 transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
                     aria-label="Next slide"
                   >
-                    <FaChevronRight className="text-gray-700 w-5 h-5" />
+                    <FaChevronRight className="text-gray-700 w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </>
               )}
@@ -507,7 +526,7 @@ export default function HomePage() {
                           {rec.recommendedTo?.name || "Unknown Product"}
                         </h3>
                         <p className="text-lg font-bold text-gray-900 mb-2">
-                          ${rec.recommendedTo?.price?.toFixed(2) || "N/A"}
+                          Tk.{rec.recommendedTo?.price?.toFixed(2) || "N/A"}
                         </p>
                         {rec.reason && (
                           <p className="text-xs text-gray-500 line-clamp-2 mt-auto">
@@ -525,39 +544,39 @@ export default function HomePage() {
       )}
 
       {/* CTA Section */}
-      <section className="py-20 relative overflow-hidden">
+      <section className="py-10 lg:py-16 relative overflow-hidden flex items-center min-h-[50vh]">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900"></div>
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOCAxOC04LjA1OSAxOC0xOC04LjA1OS0xOC0xOC0xOHptMCAzMmMtNy43MzIgMC0xNC02LjI2OC0xNC0xNHM2LjI2OC0xNCAxNC0xNCAxNCA2LjI2OCAxNCAxNC02LjI2OCAxNC0xNCAxNHoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iLjAyIi8+PC9nPjwvc3ZnPg==')] opacity-20"></div>
 
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-sm rounded-3xl mb-8">
-            <FaBox className="text-4xl text-white" />
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-white/10 backdrop-blur-sm rounded-3xl mb-4">
+            <FaBox className="text-2xl text-white" />
           </div>
 
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
             Ready to Transform Your Shopping Experience?
           </h2>
 
-          <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-base md:text-lg text-blue-100 mb-6 max-w-2xl mx-auto leading-relaxed">
             Join millions of smart shoppers who are already saving money with
             AI-powered price negotiation and personalized recommendations.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/products">
               <Button
-                size="lg"
-                className="text-blue-600 hover:bg-blue-50 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
+                size="md"
+                className="text-blue-600 hover:bg-blue-50 px-5 py-2 text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
               >
-                <FaBox className="text-xl" />
+                <FaBox className="text-base" />
                 Start Shopping Now
               </Button>
             </Link>
             <Link href="/register?role=seller">
               <Button
-                size="lg"
+                size="md"
                 variant="outline"
-                className="border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-semibold rounded-xl backdrop-blur-sm transition-all duration-300 flex items-center gap-2"
+                className="border-white/30 text-white hover:bg-white/10 px-5 py-2 text-sm font-semibold rounded-xl backdrop-blur-sm transition-all duration-300 flex items-center gap-2"
               >
                 <FaGem className="text-amber-400" />
                 Become a Seller
@@ -565,7 +584,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <p className="mt-8 text-blue-200 text-sm">
+          <p className="mt-4 text-blue-200 text-sm">
             Free to join • No upfront costs • Cancel anytime
           </p>
         </div>

@@ -66,5 +66,15 @@ export default async function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  // Only the routes that actually do auth in this middleware. Matching every
+  // API route adds avoidable latency to public endpoints (products, search,
+  // categories, stats, ...) and burns free-tier invocation time.
+  matcher: [
+    "/api/users/profile/:path*",
+    "/api/cart/:path*",
+    "/api/orders/:path*",
+    "/api/payments/:path*",
+    "/api/offers/:path*",
+    "/api/admin/:path*",
+  ],
 };

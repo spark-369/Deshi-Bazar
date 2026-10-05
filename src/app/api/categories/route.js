@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { verifyToken, extractToken } from "@/lib/auth";
 
 // GET /api/categories - List all categories
 export async function GET(request) {
@@ -60,10 +61,8 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const authHeader = request.headers.get("authorization");
-    const token = authHeader?.substring(7);
+    const token = extractToken(authHeader);
 
-    // Import verifyToken dynamically to avoid issues
-    const { verifyToken } = await import("@/lib/auth");
     const user = token ? await verifyToken(token) : null;
 
     if (!user || user.role !== "ADMIN") {
@@ -132,9 +131,8 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const authHeader = request.headers.get("authorization");
-    const token = authHeader?.substring(7);
+    const token = extractToken(authHeader);
 
-    const { verifyToken } = await import("@/lib/auth");
     const user = token ? await verifyToken(token) : null;
 
     if (!user || user.role !== "ADMIN") {
@@ -224,9 +222,8 @@ export async function PUT(request) {
 export async function DELETE(request) {
   try {
     const authHeader = request.headers.get("authorization");
-    const token = authHeader?.substring(7);
+    const token = extractToken(authHeader);
 
-    const { verifyToken } = await import("@/lib/auth");
     const user = token ? await verifyToken(token) : null;
 
     if (!user || user.role !== "ADMIN") {

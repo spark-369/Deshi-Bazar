@@ -19,6 +19,7 @@ export async function GET(request) {
 
     // Filter parameters
     const userId = searchParams.get("userId") || (user ? user.id : null);
+    const email = searchParams.get("email");
     const productId = searchParams.get("productId");
     const recommendedProductId = searchParams.get("recommendedProductId");
     const minScore = parseFloat(searchParams.get("minScore"));
@@ -29,10 +30,20 @@ export async function GET(request) {
     const sortBy = searchParams.get("sortBy") || "score";
     const sortOrder = searchParams.get("sortOrder") || "desc";
 
+    // Resolve email to userId if provided
+    let resolvedUserId = userId;
+    if (email) {
+      const matchedUser = await prisma.user.findFirst({
+        where: { email: { contains: email, mode: "insensitive" } },
+        select: { id: true },
+      });
+      resolvedUserId = matchedUser?.id || "__no_match__";
+    }
+
     // Build where clause
     const where = {};
 
-    if (userId) where.userId = userId;
+    if (resolvedUserId) where.userId = resolvedUserId;
     if (productId) where.productId = productId;
     if (recommendedProductId) where.recommendedProductId = recommendedProductId;
     if (!isNaN(minScore)) where.score = { gte: minScore };
@@ -73,6 +84,13 @@ export async function GET(request) {
             images: true,
             price: true,
             status: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
           },
         },
       },
@@ -123,28 +141,81 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { generateAI, userId, productId, recommendedProductId, score, reason } = body;
+    const { generateAI, userId, email, productId, recommendedProductId, score, reason } = body;
 
     if (generateAI) {
       // AI-generated recommendations for a user
-      if (!userId) {
+      let targetUserId = userId;
+      if (!targetUserId && email) {
+        const matchedUser = await prisma.user.findFirst({
+          where: { email: { contains: email, mode: "insensitive" } },
+          select: { id: true },
+        });
+        targetUserId = matchedUser?.id || null;
+      }
+      if (!targetUserId) {
         return NextResponse.json(
-          { error: "userId is required for AI generation" },
+          { error: "userId or email is required for AI generation" },
           { status: 400 },
         );
       }
 
-      // Get user's viewed products from profile
+      // Build the user's interest profile from browsing history, purchase history AND search history
       const userProfile = await prisma.userProfile.findUnique({
-        where: { userId },
-        select: { browsingHistory: true },
+        where: { userId: targetUserId },
+        select: { browsingHistory: true, purchaseHistory: true },
       });
 
-      const viewedProductIds = userProfile?.browsingHistory || [];
-      const viewedProducts = await prisma.product.findMany({
-        where: { id: { in: viewedProductIds } },
+      const browsedIds = [
+        ...(Array.isArray(userProfile?.browsingHistory)
+          ? userProfile.browsingHistory
+          : []),
+        ...(Array.isArray(userProfile?.purchaseHistory)
+          ? userProfile.purchaseHistory.flat()
+          : []),
+      ];
+
+      // Recent search queries (the real activity signal for most users)
+      const searchHistory = await prisma.searchHistory.findMany({
+        where: { userId: targetUserId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { query: true },
+      });
+      const searchQueries = searchHistory.map((s) => s.query).filter(Boolean);
+
+      // Products the user explicitly browsed (from cart adds)
+      const browsedProducts = await prisma.product.findMany({
+        where: { id: { in: browsedIds } },
         select: { id: true, name: true, description: true },
       });
+
+      // Products matching the user's search queries (fallback / enrichment)
+      const searchMatchedProducts = searchQueries.length
+        ? await prisma.product.findMany({
+            where: {
+              status: "ACTIVE",
+              OR: searchQueries.map((q) => ({
+                OR: [
+                  { name: { contains: q, mode: "insensitive" } },
+                  { description: { contains: q, mode: "insensitive" } },
+                ],
+              })),
+            },
+            select: { id: true, name: true, description: true },
+            take: 20,
+          })
+        : [];
+
+      // Deduplicate by id, preferring browsed products first
+      const seen = new Set();
+      const viewedProducts = [...browsedProducts, ...searchMatchedProducts].filter(
+        (p) => {
+          if (seen.has(p.id)) return false;
+          seen.add(p.id);
+          return true;
+        },
+      );
 
       // Get all active products for recommendations
       const allProducts = await prisma.product.findMany({
@@ -152,58 +223,74 @@ export async function POST(request) {
         select: { id: true, name: true, description: true },
       });
 
-      // Generate AI recommendations
-      const aiRecommendations = await generateRecommendations(userId, viewedProducts, allProducts);
+      // Generate recommendations for EACH browsing/purchase history product.
+      // Each history product becomes the source (productId) and its similar
+      // products become the recommended items.
+      const recommendationData = [];
+      const createdPairs = new Set();
 
-      // Create recommendations in database
-      const baseProductId = viewedProducts.length > 0 ? viewedProducts[0].id : null;
-      const createdRecommendations = [];
-      for (const rec of aiRecommendations) {
-        try {
-          const recommendation = await prisma.productRecommendation.create({
-            data: {
-              userId,
-              productId: baseProductId || rec.productId, // Use base product or the recommended one
-              recommendedProductId: rec.productId,
-              score: rec.score,
-              reason: rec.reason,
-            },
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  images: true,
-                  price: true,
-                },
-              },
-              recommendedTo: {
-                select: {
-                  id: true,
-                  name: true,
-                  images: true,
-                  price: true,
-                },
-              },
-            },
+      for (const source of viewedProducts) {
+        const aiRecommendations = await generateRecommendations(
+          targetUserId,
+          [source],
+          allProducts,
+        );
+
+        for (const rec of aiRecommendations) {
+          // Avoid recommending the source product to itself, and avoid duplicates
+          if (rec.productId === source.id) continue;
+          const pairKey = `${source.id}:${rec.productId}`;
+          if (createdPairs.has(pairKey)) continue;
+          createdPairs.add(pairKey);
+
+          recommendationData.push({
+            userId: targetUserId,
+            productId: source.id,
+            recommendedProductId: rec.productId,
+            score: rec.score,
+            reason: rec.reason,
           });
-          createdRecommendations.push(recommendation);
-        } catch (error) {
-          // Skip duplicates or errors
-          console.log("Skipping recommendation creation:", error.message);
         }
+      }
+
+      // Create recommendations inline. Serverless platforms freeze the process
+      // once the response is sent, so a setImmediate background write would be
+      // dropped; duplicates are skipped per-pair, so re-running is harmless.
+      try {
+        for (const rec of recommendationData) {
+          try {
+            await prisma.productRecommendation.create({
+              data: rec,
+              include: {
+                product: { select: { id: true, name: true, images: true, price: true } },
+                recommendedTo: { select: { id: true, name: true, images: true, price: true } },
+              },
+            });
+          } catch (e) {
+            console.log("Skipping recommendation creation:", rec.recommendedProductId);
+          }
+        }
+      } catch (e) {
+        console.error("Recommendation creation failed:", e);
       }
 
       return NextResponse.json({
         message: "AI recommendations generated",
-        recommendations: createdRecommendations,
-        count: createdRecommendations.length,
+        count: recommendationData.length,
       }, { status: 201 });
     } else {
       // Manual recommendation creation
-      if (!userId || !productId || !recommendedProductId || score === undefined) {
+      let manualUserId = userId;
+      if (!manualUserId && email) {
+        const matchedUser = await prisma.user.findFirst({
+          where: { email: { contains: email, mode: "insensitive" } },
+          select: { id: true },
+        });
+        manualUserId = matchedUser?.id || null;
+      }
+      if (!manualUserId || !productId || !recommendedProductId || score === undefined) {
         return NextResponse.json(
-          { error: "userId, productId, recommendedProductId, and score are required" },
+          { error: "userId or email, productId, recommendedProductId, and score are required" },
           { status: 400 },
         );
       }
@@ -211,7 +298,7 @@ export async function POST(request) {
       // Create single recommendation
       const recommendation = await prisma.productRecommendation.create({
         data: {
-          userId,
+          userId: manualUserId,
           productId,
           recommendedProductId,
           score: parseFloat(score),

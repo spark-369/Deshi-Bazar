@@ -10,6 +10,7 @@ export async function GET(request) {
 
     // Filter parameters
     const categoryId = searchParams.get("categoryId");
+    const categoryIdsParam = searchParams.get("categoryIds");
     const sellerId = searchParams.get("sellerId");
     const minPrice = parseFloat(searchParams.get("minPrice")) || 0;
     const maxPriceParam = searchParams.get("maxPrice");
@@ -38,7 +39,11 @@ export async function GET(request) {
       where.price.lte = maxPrice;
     }
 
-    if (categoryId) where.categoryId = categoryId;
+    if (categoryIdsParam) {
+      where.categoryId = { in: categoryIdsParam.split(",").filter(Boolean) };
+    } else if (categoryId) {
+      where.categoryId = categoryId;
+    }
     if (sellerId) where.sellerId = sellerId;
     if (isNegotiable !== null) where.isNegotiable = isNegotiable === "true";
     if (productType) where.productType = productType;
@@ -53,6 +58,18 @@ export async function GET(request) {
 
     // Get total count
     const total = await prisma.product.count({ where });
+
+    // Build orderBy clause - handle custom sort options
+    let orderBy = {};
+    if (sortBy === "price_asc") {
+      orderBy = { price: "asc" };
+    } else if (sortBy === "price_desc") {
+      orderBy = { price: "desc" };
+    } else if (sortBy === "rating") {
+      orderBy = { createdAt: "desc" };
+    } else {
+      orderBy = { [sortBy]: sortOrder };
+    }
 
     // Get products with pagination
     const products = await prisma.product.findMany({
@@ -72,9 +89,7 @@ export async function GET(request) {
           },
         },
       },
-      orderBy: {
-        [sortBy]: sortOrder,
-      },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -162,15 +177,13 @@ export async function POST(request) {
       );
     }
 
-    // Generate embedding for semantic search
-    const embedding = await generateEmbedding(
-      `${name} ${description || ""} ${tags?.join(" ") || ""}`,
-    );
+    // Calculate AI-suggested price range for negotiation (non-blocking)
+    const priceSuggestion = await suggestNegotiationPrice(price, price * 0.85).catch(() => ({
+      minAcceptable: price * 0.7,
+      maxAcceptable: price * 0.95,
+    }));
 
-    // Calculate AI-suggested price range for negotiation
-    const priceSuggestion = await suggestNegotiationPrice(price, price * 0.85);
-
-    // Create product
+    // Create product first (fast path)
     const product = await prisma.product.create({
       data: {
         sellerId: user.id,
@@ -186,7 +199,6 @@ export async function POST(request) {
         maxAcceptablePrice: priceSuggestion.maxAcceptable,
         estimatedDeliveryDays,
         tags: tags || [],
-        embedding: embedding ? JSON.stringify(embedding) : null,
         // Grocery-specific fields
         productType: productType || 'REGULAR',
         unit,
@@ -206,6 +218,23 @@ export async function POST(request) {
         },
       },
     });
+
+    // Generate embedding inline — it is a cheap, dependency-free hash, and
+    // serverless platforms (Vercel) freeze the event loop as soon as the
+    // response is sent, so fire-and-forget work would silently never run.
+    try {
+      const embedding = await generateEmbedding(
+        `${name} ${description || ""} ${tags?.join(" ") || ""}`,
+      );
+      if (embedding) {
+        await prisma.product.update({
+          where: { id: product.id },
+          data: { embedding: JSON.stringify(embedding) },
+        });
+      }
+    } catch (e) {
+      console.error("Embedding generation failed:", e);
+    }
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {

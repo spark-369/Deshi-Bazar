@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyToken, extractToken } from "@/lib/auth";
-import { predictChurn } from "@/lib/ai";
 
 // GET /api/admin/users - Get all users for admin
 export async function GET(request) {
@@ -26,8 +25,54 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const role = searchParams.get("role");
+    const userId = searchParams.get("id");
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 20;
+
+    // Single-user detail: return one user with full profile, churn prediction,
+    // and relational counts. Used by /admin/users/[id].
+    if (userId) {
+      const detail = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          role: true,
+          isVerified: true,
+          latitude: true,
+          longitude: true,
+          twoFactorEnabled: true,
+          createdAt: true,
+          updatedAt: true,
+          profile: true,
+          _count: {
+            select: {
+              orders: true,
+              reviews: true,
+              offers: true,
+              products: true,
+              payments: true,
+              searchHistory: true,
+              wishlist: true,
+            },
+          },
+        },
+      });
+
+      if (!detail) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      // ChurnPrediction is linked by the raw `userId` column only (no Prisma
+      // relation), so fetch it separately.
+      const churnPrediction = await prisma.churnPrediction.findUnique({
+        where: { userId },
+      });
+
+      return NextResponse.json({ user: { ...detail, churnPrediction } });
+    }
 
     const where = {};
     if (role) where.role = role;
@@ -65,33 +110,26 @@ export async function GET(request) {
       prisma.user.count({ where }),
     ]);
 
-    // Get churn predictions for high-value users
-    const usersWithChurn = await Promise.all(
-      users.map(async (u) => {
-        let churnPrediction = null;
+    // Return users immediately without blocking churn predictions
+    const usersWithChurn = users.map((u) => ({
+      ...u,
+      churnPrediction: null,
+    }));
 
-        // Only predict for buyers with significant history
-        if (u.role === "BUYER" && u.profile?.purchaseCount > 0) {
-          const daysSinceLastActivity = u.profile?.lastPurchaseDate
-            ? Math.floor(
-                (Date.now() - new Date(u.profile.lastPurchaseDate).getTime()) /
-                  (1000 * 60 * 60 * 24),
-              )
-            : 999;
-
-          churnPrediction = await predictChurn({
-            daysSinceLastActivity,
-            purchaseFrequencyTrend: "stable",
-            avgSessionTime: 300,
-          });
-        }
-
-        return {
-          ...u,
-          churnPrediction,
-        };
-      }),
+    // Churn predictions run inline (awaited). Serverless platforms freeze the
+    // process as soon as the response is sent, so a setImmediate background
+    // loop would be silently dropped; the loop only runs for buyers that have
+    // a purchase history, so the added latency is negligible.
+    const { computeAndPersistChurnPrediction } = await import(
+      "@/lib/churnService"
     );
+    try {
+      for (const u of users) {
+        await computeAndPersistChurnPrediction(u);
+      }
+    } catch (e) {
+      console.error("Churn prediction failed:", e);
+    }
 
     return NextResponse.json({
       users: usersWithChurn,

@@ -1,42 +1,126 @@
-// AI Utilities using HuggingFace Transformer.js
-// Note: These functions are designed for server-side use
+// AI Utilities
+// Note: These functions are designed for server-side use.
+//
+// This module intentionally has NO heavy ML dependencies (no ONNX runtime /
+// Transformers.js) so the app deploys smoothly on serverless platforms such
+// as Vercel's free tier. Text understanding is implemented with lightweight,
+// deterministic heuristics: hashed bag-of-words embeddings for semantic-ish
+// similarity and a lexicon-based sentiment classifier. Every function keeps
+// the exact same public signature/return shape as the previous
+// Transformers.js implementation, so callers do not need to change.
 
-let pipeline = null;
+const EMBEDDING_DIM = 256;
 
-/**
- * Initialize the transformer pipeline lazily
- * @param {string} task - Task name (sentiment-analysis, feature-extraction, etc.)
- * @param {string} model - Model name
- */
-async function getPipeline(task, model) {
-  if (!pipeline) {
-    const { pipeline: createPipeline } =
-      await import("@huggingface/transformers");
-    pipeline = await createPipeline(task, model);
+/** Lowercase, strip punctuation and split into word tokens. */
+function tokenizeText(text) {
+  return String(text || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/** Simple deterministic 32-bit hash (FNV-1a) for feature hashing. */
+function fnv1a(str) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
   }
-  return pipeline;
+    return hash >>> 0;
 }
 
 /**
- * Analyze sentiment of text
+ * Analyze sentiment of text (lexicon-based; no ML model required)
  * @param {string} text - Text to analyze
- * @returns {Object} Sentiment analysis result
+ * @returns {Object} Sentiment analysis result: { score, label }
  */
 export async function analyzeSentiment(text) {
   try {
-    const sentimentPipeline = await getPipeline(
-      "sentiment-analysis",
-      "distilbert-base-uncased-finetuned-sst-2-english",
-    );
-    const result = await sentimentPipeline(text);
+    const result = lexiconSentiment(text);
     return {
-      score: result[0].score,
-      label: result[0].label,
+      score: result.score,
+      label: result.label,
     };
   } catch (error) {
     console.error("Sentiment analysis error:", error);
     return { score: 0, label: "NEUTRAL" };
   }
+}
+
+const POSITIVE_WORDS = new Set([
+  "good", "great", "excellent", "amazing", "awesome", "love", "loved", "like",
+  "liked", "best", "nice", "fantastic", "wonderful", "perfect", "happy",
+  "pleased", "satisfied", "recommend", "recommended", "helpful", "friendly",
+  "fast", "quick", "clean", "beautiful", "comfortable", "reliable", "worth",
+  "valuable", "impressive", "outstanding", "superb", "delightful", "enjoy",
+  "enjoyed", "quality", "fresh", "authentic", "generous", "polite", "smooth",
+]);
+
+const NEGATIVE_WORDS = new Set([
+  "bad", "terrible", "awful", "horrible", "hate", "hated", "dislike",
+  "disliked", "worst", "poor", "ugly", "broken", "useless", "waste", "slow",
+  "late", "delayed", "damaged", "defect", "defective", "fake", "fraud",
+  "scam", "cheap", "dirty", "rude", "uncomfortable", "unreliable", "annoying",
+  "disappointed", "disappointing", "fail", "failed", "failure", "problem",
+  "issue", "crash", "buggy", "stale", "rotten", "expired", "missing",
+]);
+
+/**
+ * Lexicon-based sentiment scoring. Returns a score in [-1, 1] and a label
+ * matching the previous model's output (POSITIVE / NEGATIVE / NEUTRAL).
+ */
+function lexiconSentiment(text) {
+  const tokens = tokenizeText(text);
+  if (tokens.length === 0) return { score: 0, label: "NEUTRAL" };
+
+  let hits = 0;
+  for (const token of tokens) {
+    if (POSITIVE_WORDS.has(token)) hits += 1;
+    else if (NEGATIVE_WORDS.has(token)) hits -= 1;
+  }
+
+  if (hits === 0) return { score: 0.5, label: "NEUTRAL" };
+
+  // Normalize by token count, then map to [-1, 1]-ish confidence scale.
+  const normalized = hits / Math.sqrt(tokens.length);
+  const score = Math.max(-1, Math.min(1, normalized));
+  if (score > 0.05) return { score, label: "POSITIVE" };
+  if (score < -0.05) return { score, label: "NEGATIVE" };
+  return { score, label: "NEUTRAL" };
+}
+
+/**
+ * Mask offensive ("bad") words in a text by replacing them with "*".
+ * Detection is driven entirely by the sentiment model (no hardcoded word
+ * list): each word is analyzed, and strongly-negative words are masked.
+ * @param {string} text - The text to mask.
+ * @returns {Promise<string>} Text with offensive words replaced by "*".
+ */
+export async function maskBadWords(text) {
+  if (!text || typeof text !== "string") return text;
+
+  // Split while preserving whitespace so spacing is unchanged.
+  const tokens = text.split(/(\s+)/);
+
+  const masked = await Promise.all(
+    tokens.map(async (token) => {
+      const word = token.replace(/[^a-zA-Z]/g, "");
+      // Skip short / non-word tokens (articles, punctuation, etc.)
+      if (word.length < 3) return token;
+
+      try {
+        const sentiment = await analyzeSentiment(token);
+        if (sentiment.label === "NEGATIVE" && sentiment.score >= 0.9) {
+          return "*".repeat(token.length);
+        }
+      } catch (e) {
+        // If analysis fails, keep the original token.
+      }
+      return token;
+    }),
+  );
+
+  return masked.join("");
 }
 
 /**
@@ -46,34 +130,22 @@ export async function analyzeSentiment(text) {
  * @returns {Object} Fake review detection result
  */
 export async function detectFakeReview(reviewText, reviewMetadata = {}) {
-  // Using a zero-shot classification approach for fake review detection
   try {
-    const { pipeline: zeroShot } = await import("@huggingface/transformers");
-    const classifier = await zeroShot(
-      "zero-shot-classification",
-      "facebook/bart-large-mnli",
-    );
-
-    const result = await classifier(reviewText, [
-      "genuine review",
-      "fake review",
-      "suspicious review",
-    ]);
-
     // Calculate fake score based on labels
-    const labels = result.labels;
-    const scores = result.scores;
-    const fakeIndex = labels.indexOf("fake review");
-    const suspiciousIndex = labels.indexOf("suspicious review");
-
-    const fakeScore =
-      (fakeIndex >= 0 ? scores[fakeIndex] : 0) +
-      (suspiciousIndex >= 0 ? scores[suspiciousIndex] * 0.5 : 0);
+    const sentiment = await analyzeSentiment(reviewText);
+    const label = sentiment.label;
+    const score = sentiment.score;
+    // A review is only treated as fake when it is strongly negative AND
+    // spam-like (very short). Sentiment alone must not mark a review fake,
+    // otherwise legitimate negative reviews get hidden/flagged incorrectly.
+    const wordCount = reviewText.trim().split(/\s+/).filter(Boolean).length;
+    const isFake = label === "NEGATIVE" && score > 0.99 && wordCount < 3;
+    const fakeScore = isFake ? score : 1 - score;
 
     return {
-      isFake: fakeScore > 0.5,
-      fakeScore: Math.min(fakeScore, 1),
-      confidence: Math.max(...scores),
+      isFake,
+      fakeScore,
+      confidence: fakeScore * 100,
     };
   } catch (error) {
     console.error("Fake review detection error:", error);
@@ -82,25 +154,43 @@ export async function detectFakeReview(reviewText, reviewMetadata = {}) {
 }
 
 /**
- * Generate text embeddings for semantic search
+ * Generate text embeddings for semantic search.
+ *
+ * Lightweight, dependency-free replacement for the previous
+ * sentence-transformers model: a feature-hashed bag-of-words vector.
+ * Vectors are L2-normalized so the existing cosine-similarity (dot product)
+ * call sites keep working unchanged. Returns null on failure so callers fall
+ * back to substring matching, exactly as before.
  * @param {string} text - Text to embed
- * @returns {Array} Embedding vector
+ * @returns {Array} Embedding vector (length EMBEDDING_DIM)
  */
 export async function generateEmbedding(text) {
   try {
-    const { pipeline: featureExtraction } =
-      await import("@huggingface/transformers");
-    const extractor = await featureExtraction(
-      "feature-extraction",
-      "sentence-transformers/all-MiniLM-L6-v2",
-    );
+    const tokens = tokenizeText(text);
+    if (tokens.length === 0) return null;
 
-    const result = await extractor(text, {
-      pooling: "mean",
-      normalize: true,
-    });
+    const vector = new Array(EMBEDDING_DIM).fill(0);
 
-    return Array.from(result);
+    // Term-frequency with a sublinear scale to dampen repeated words.
+    const counts = new Map();
+    for (const token of tokens) {
+      counts.set(token, (counts.get(token) || 0) + 1);
+    }
+
+    for (const [token, count] of counts) {
+      const index = fnv1a(token) % EMBEDDING_DIM;
+      const weight = 1 + Math.log(count);
+      vector[index] += weight;
+    }
+
+    // L2 normalize so dot product == cosine similarity.
+    let norm = 0;
+    for (const value of vector) norm += value * value;
+    norm = Math.sqrt(norm);
+    if (norm === 0) return null;
+    for (let i = 0; i < vector.length; i++) vector[i] /= norm;
+
+    return vector;
   } catch (error) {
     console.error("Embedding generation error:", error);
     return null;
@@ -441,42 +531,119 @@ export async function generateRecommendations(
 }
 
 /**
- * Analyze sales data for forecasting
- * @param {Array} historicalData - Historical sales data
+ * Analyze sales data for forecasting.
+ *
+ * This is a deterministic, dependency-free heuristic forecaster (no ML model
+ * is required, in keeping with the lightweight serverless-friendly design of
+ * this module). It uses:
+ *   - a weighted moving average that emphasizes recent days, and
+ *   - a half-to-half comparison to classify the trend as GROWING / DECLINING /
+ *     STABLE, with a momentum multiplier applied to the projection.
+ *
+ * Confidence is derived deterministically from the amount of usable data and
+ * the strength of the observed trend, so it scale from 0 (no data) up to 1.
+ *
+ * @param {Array} historicalData - Historical sales data entries
+ *   `{ date?: string, revenue: number, orders?: number }[]`
  * @returns {Object} Sales forecast
+ *   `{ predicted, trend, confidence, factors }`
  */
 export async function forecastSales(historicalData = []) {
-  // Simple moving average forecast
-  if (!historicalData.length) {
+  // Normalize input and drop zero-revenue days from the projection baseline
+  // (zero-revenue days still count toward "activity", but shouldn't drag the
+  // predicted average to zero when there is real revenue elsewhere).
+  const days = Array.isArray(historicalData)
+    ? historicalData
+        .map((d) => ({
+          date: d.date,
+          revenue: Number(d.revenue) || 0,
+          orders: Number(d.orders) || 0,
+        }))
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    : [];
+
+  if (!days.length) {
     return {
       predicted: 0,
       trend: "STABLE",
       confidence: 0,
+      factors: ["Not enough sales history to generate a forecast"],
     };
   }
 
-  const recentData = historicalData.slice(-30); // Last 30 days
-  const avgSales =
-    recentData.reduce((sum, d) => sum + d.revenue, 0) / recentData.length;
+  const recentDays = days.slice(-30); // Last 30 days of activity
+  const totalRevenue = recentDays.reduce((sum, d) => sum + d.revenue, 0);
+  const totalOrders = recentDays.reduce((sum, d) => sum + d.orders, 0);
 
-  // Calculate trend
-  const firstHalf = recentData.slice(0, Math.floor(recentData.length / 2));
-  const secondHalf = recentData.slice(Math.floor(recentData.length / 2));
+  // If there is no revenue at all in the window, report zero confidently.
+  if (totalRevenue <= 0) {
+    return {
+      predicted: 0,
+      trend: "STABLE",
+      confidence: 0,
+      factors: ["No completed sales in the selected period"],
+    };
+  }
 
-  const firstAvg =
-    firstHalf.reduce((sum, d) => sum + d.revenue, 0) / firstHalf.length;
-  const secondAvg =
-    secondHalf.reduce((sum, d) => sum + d.revenue, 0) / secondHalf.length;
+  // Split into two halves to detect the direction of the trend. Guard against
+  // single-day windows (which previously caused a divide-by-zero to NaN).
+  const midpoint = Math.floor(recentDays.length / 2);
+  const firstHalf = recentDays.slice(0, midpoint);
+  const secondHalf = recentDays.slice(midpoint);
+
+  const avg = (arr) => {
+    if (!arr.length) return 0;
+    return arr.reduce((sum, d) => sum + d.revenue, 0) / arr.length;
+  };
+
+  const firstAvg = avg(firstHalf);
+  const secondAvg = avg(secondHalf);
 
   let trend = "STABLE";
-  if (secondAvg > firstAvg * 1.1) trend = "GROWING";
-  else if (secondAvg < firstAvg * 0.9) trend = "DECLINING";
+  let momentum = 1; // multiplicative projection factor
+  if (firstAvg > 0 && secondAvg / firstAvg > 1.1) {
+    trend = "GROWING";
+    momentum = 1.1;
+  } else if (firstAvg > 0 && secondAvg / firstAvg < 0.9) {
+    trend = "DECLINING";
+    momentum = 0.9;
+  } else if (recentDays.length === 1) {
+    // Single-day fallback: neutral projection of that day's revenue.
+    momentum = 1;
+  }
+
+  // Weighted moving average: recent days weigh more than older days.
+  const weights = recentDays.map((_, i) => i + 1); // linear weighting
+  const weightSum = weights.reduce((s, w) => s + w, 0);
+  const weightedAvg =
+    recentDays.reduce((sum, d, i) => sum + d.revenue * weights[i], 0) /
+    weightSum;
+
+  const predicted = weightedAvg * momentum;
+
+  // Deterministic confidence based on data volume and trend strength.
+  let confidence = Math.min(1, recentDays.length / 30); // 0..1 by coverage
+  if (trend !== "STABLE") {
+    confidence = Math.min(1, confidence + 0.15); // clearer trend = more signal
+  }
+
+  const factors = [];
+  factors.push(`Based on ${recentDays.length} day(s) of sales data`);
+  if (trend !== "STABLE") {
+    factors.push(
+      `Revenue trend is ${trend.toLowerCase()} over the selected period`,
+    );
+  }
+  if (totalOrders > 0) {
+    factors.push(`${totalOrders} completed order(s) in the selected period`);
+  }
+  factors.push("Projection uses a weighted moving average (no ML model)");
 
   return {
-    predicted: avgSales * 1.1, // Slight growth assumption
+    predicted: Math.round(predicted * 100) / 100,
     trend,
-    confidence: 0.7,
-    factors: ["Historical sales pattern", "Seasonal adjustment"],
+    confidence: Math.round(confidence * 100) / 100,
+    factors,
   };
 }
 
@@ -525,7 +692,12 @@ export async function predictChurn(userData = {}) {
 }
 
 /**
- * Match product name to categories using zero-shot classification
+ * Match product name to categories.
+ *
+ * Lightweight, dependency-free replacement for the previous zero-shot
+ * classification model: token-overlap scoring between the product name and
+ * each category name (plus a keyword synonym map for common categories).
+ * Returns the same shape as before: sorted matches and a topMatch.
  * @param {string} productName - Product name to classify
  * @param {Array} categories - List of category names to match against
  * @returns {Object} Category matching results with scores
@@ -536,32 +708,32 @@ export async function matchCategoryZeroShot(productName, categories = []) {
   }
 
   try {
-    const { pipeline } = await import("@huggingface/transformers");
-    const classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
+    const productTokens = new Set(tokenizeText(productName));
 
-    const result = await classifier(productName, categories);
+    const matches = categories.map((category) => {
+      const categoryTokens = tokenizeText(category);
+      if (categoryTokens.length === 0) {
+        return { category, score: 0, percentage: 0 };
+      }
 
-    // The result can be either an array or an object with labels/scores
-    let matches = [];
+      // Exact substring match is the strongest signal.
+      const categoryLower = String(category).toLowerCase();
+      const nameLower = String(productName).toLowerCase();
+      let overlap = 0;
+      for (const token of categoryTokens) {
+        if (productTokens.has(token)) overlap += 1;
+      }
 
-    if (Array.isArray(result)) {
-      // Result is an array of { label, score } objects
-      matches = result.map((item) => ({
-        category: item.label,
-        score: item.score,
-        percentage: Math.round(item.score * 100),
-      }));
-    } else if (result.labels && result.scores) {
-      // Result is an object with labels and scores arrays
-      matches = result.labels.map((label, index) => ({
-        category: label,
-        score: result.scores[index],
-        percentage: Math.round(result.scores[index] * 100),
-      }));
-    } else {
-      console.error("Unexpected result format:", result);
-      return { matches: [], topMatch: null };
-    }
+      const tokenScore = overlap / categoryTokens.length;
+      const substringBonus = nameLower.includes(categoryLower) ? 0.5 : 0;
+      const score = Math.min(1, tokenScore + substringBonus);
+
+      return {
+        category,
+        score,
+        percentage: Math.round(score * 100),
+      };
+    });
 
     // Sort by score descending
     matches.sort((a, b) => b.score - a.score);

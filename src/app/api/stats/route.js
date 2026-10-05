@@ -1,30 +1,21 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-// GET /api/stats - Get public platform statistics
+// GET /api/stats - Get public platform statistics.
+// All four queries are independent, so they run in parallel — this endpoint is
+// on the homepage hot path and parallelizing it roughly quarters its latency.
 export async function GET(request) {
   try {
-    // Count active sellers
-    const totalSellers = await prisma.user.count({
-      where: { role: "SELLER" },
-    });
+    const [totalSellers, totalProducts, reviewStats, totalOrders] =
+      await Promise.all([
+        prisma.user.count({ where: { role: "SELLER" } }),
+        prisma.product.count({ where: { status: "ACTIVE" } }),
+        prisma.review.aggregate({ _avg: { rating: true } }),
+        prisma.order.count(),
+      ]);
 
-    // Count active products
-    const totalProducts = await prisma.product.count({
-      where: { status: "ACTIVE" },
-    });
-
-    // Calculate average rating from reviews
-    const reviews = await prisma.review.findMany({
-      select: { rating: true },
-    });
-    const avgRating = reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      : 0;
+    const avgRating = reviewStats._avg.rating || 0;
     const satisfactionRate = Math.round((avgRating / 5) * 100);
-
-    // Get total orders (for additional context)
-    const totalOrders = await prisma.order.count();
 
     return NextResponse.json({
       totalSellers,

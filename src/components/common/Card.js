@@ -12,7 +12,7 @@ export default function Card({
       className={`
         bg-white rounded-xl shadow-sm border border-gray-100
         ${hover ? 'hover:shadow-md transition-shadow duration-200 cursor-pointer' : ''}
-        ${padding ? 'p-4' : ''}
+        ${padding ? 'p-4 sm:p-5 lg:p-6' : ''}
         ${className}
       `}
       {...props}
@@ -32,7 +32,7 @@ export function CardHeader({ children, className = '' }) {
 
 export function CardTitle({ children, className = '' }) {
   return (
-    <h3 className={`text-lg font-semibold text-gray-900 ${className}`}>
+    <h3 className={`text-lg sm:text-xl font-semibold text-gray-900 ${className}`}>
       {children}
     </h3>
   );

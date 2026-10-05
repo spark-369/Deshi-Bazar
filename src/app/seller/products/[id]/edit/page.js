@@ -225,7 +225,7 @@ export default function EditProductPage() {
       router.push('/seller/products');
     } catch (error) {
       console.error('Error updating product:', error);
-      alert(error.response?.data?.error || 'Failed to update product');
+      alert(error.data?.error || error.message || 'Failed to update product');
     } finally {
       setSubmitting(false);
     }

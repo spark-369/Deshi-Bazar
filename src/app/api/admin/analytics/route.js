@@ -113,20 +113,20 @@ export async function GET(request) {
       take: 10,
     });
 
-    const topProductsWithDetails = await Promise.all(
-      topProducts.map(async (item) => {
-        const product = await prisma.product.findUnique({
-          where: { id: item.productId },
-          select: { name: true, price: true },
-        });
-        return {
-          productId: item.productId,
-          name: product?.name,
-          sold: item._sum.quantity,
-          revenue: item._sum.finalPrice,
-        };
-      }),
-    );
+    // Batch fetch product details for top products
+    const productIds = topProducts.map(item => item.productId);
+    const productDetails = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true, price: true },
+    });
+    const productMap = new Map(productDetails.map(p => [p.id, p]));
+
+    const topProductsWithDetails = topProducts.map(item => ({
+      productId: item.productId,
+      name: productMap.get(item.productId)?.name,
+      sold: item._sum.quantity,
+      revenue: item._sum.finalPrice,
+    }));
 
     // Get category distribution
     const categoryDistribution = await prisma.product.groupBy({
@@ -134,17 +134,18 @@ export async function GET(request) {
       _count: true,
     });
 
-    const categoriesWithCount = await Promise.all(
-      categoryDistribution.map(async (cat) => {
-        const category = await prisma.category.findUnique({
-          where: { id: cat.categoryId },
-        });
-        return {
-          category: category?.name,
-          count: cat._count,
-        };
-      }),
-    );
+    // Batch fetch category details
+    const categoryIds = categoryDistribution.map(cat => cat.categoryId);
+    const categoryDetails = await prisma.category.findMany({
+      where: { id: { in: categoryIds } },
+      select: { id: true, name: true },
+    });
+    const categoryMap = new Map(categoryDetails.map(c => [c.id, c.name]));
+
+    const categoriesWithCount = categoryDistribution.map(cat => ({
+      category: categoryMap.get(cat.categoryId),
+      count: cat._count,
+    }));
 
     // Prepare historical data for AI forecasting
     const historicalData = Object.entries(dailySales).map(([date, data]) => ({

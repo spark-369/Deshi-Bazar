@@ -43,6 +43,12 @@ export const adminService = {
     return data;
   },
 
+  // Get single user detail (admin)
+  async getUser(id) {
+    const data = await api.get("/api/admin/users", { params: { id } });
+    return data.user;
+  },
+
   // Update user (admin)
   async updateUser(userId, action, data = {}) {
     const result = await api.put("/api/admin/users", {

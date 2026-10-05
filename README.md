@@ -1,302 +1,469 @@
 # AI-Powered E-Commerce Platform
 
-An AI-driven e-commerce platform featuring intelligent price negotiation, personalized recommendations, semantic search, fraud detection, and comprehensive analytics for buyers, sellers, and administrators.
+A comprehensive, AI-driven e-commerce platform featuring intelligent price negotiation, personalized recommendations, semantic search, fraud detection, and comprehensive analytics for buyers, sellers, and administrators.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [AI Features](#ai-features)
+- [Project Structure](#project-structure)
+- [Database Schema](#database-schema)
+- [API Documentation](#api-documentation)
+- [Getting Started](#getting-started)
+- [User Roles & Permissions](#user-roles--permissions)
+- [Key Features](#key-features)
+- [Search](#search)
+- [Available Scripts](#available-scripts)
+- [Environment Variables](#environment-variables)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Overview
+
+This platform combines modern e-commerce functionality with cutting-edge AI capabilities to create an intelligent shopping experience. Built with Next.js 16 (App Router), React 19, and PostgreSQL, it leverages Hugging Face Transformers.js for AI-powered features including semantic search, sentiment analysis, price negotiation suggestions, fraud detection, and personalized recommendations.
 
 ## Tech Stack
 
 ### Frontend
 - **Framework**: Next.js 16.1.6 (App Router)
-- **UI**: React 19.2.3, Tailwind CSS 4
+- **UI Library**: React 19.2.3 with Tailwind CSS 4
+- **State Management**: React Context API (Auth, Cart, Product)
+- **HTTP Client**: Custom API wrapper with interceptors (`src/services/api.js`)
 - **Icons**: React Icons
 - **Charts**: Recharts
-- **State Management**: React Context API (Auth, Cart, Product)
-- **HTTP Client**: Custom API wrapper (`src/services/api.js`)
+- **Navigation**: Next.js App Router with route groups and dynamic segments
 
 ### Backend
 - **Runtime**: Next.js API Routes (Server-side)
 - **Database**: PostgreSQL via Prisma ORM 6.4.1
 - **Authentication**: JWT (jose) with bcrypt password hashing
 - **AI Engine**: HuggingFace Transformers.js
+- **File Upload**: Custom image upload endpoint
+- **Middleware**: Custom authentication and authorization middleware
 
-### AI Features
-- Semantic search with embeddings
-- Sentiment analysis & fake review detection
-- Price negotiation suggestions
-- Fraud detection
-- Delivery time prediction
-- Personalized recommendations
-- Sales forecasting & customer churn prediction
-- AI-powered category matching
+### DevOps & Tools
+- **Package Manager**: npm
+- **Database Migrations**: Prisma Migrate
+- **Type Checking**: TypeScript (via jsconfig.json)
+- **Code Formatting**: Prettier (configured in package.json)
+- **Environment Variables**: dotenv
+
+## AI Features
+
+The platform integrates multiple AI capabilities powered by Hugging Face Transformers.js:
+
+| Feature | Description | Implementation |
+|---------|-------------|----------------|
+| **Semantic Search** | Vector embeddings powered search with understanding of user intent | `generateEmbedding()` in `src/lib/ai.js` |
+| **AI Search Suggestions** | Intelligent autocomplete with contextual understanding | `getAISearchSuggestions()` in `src/lib/ai.js` |
+| **Sentiment Analysis** | Understanding emotional tone of reviews and feedback | `analyzeSentiment()` in `src/lib/ai.js` |
+| **Fake Review Detection** | Identifying potentially fraudulent or spam reviews | `detectFakeReview()` in `src/lib/ai.js` |
+| **Price Negotiation Engine** | AI-suggested acceptable prices and acceptance predictions | `suggestNegotiationPrice()` & `predictOfferAcceptance()` in `src/lib/ai.js` |
+| **Fraud Detection** | Real-time payment fraud scoring and flagging | `detectFraud()` in `src/lib/ai.js` |
+| **Delivery Time Prediction** | Estimating delivery dates based on multiple factors | `predictDeliveryTime()` in `src/lib/ai.js` |
+| **Personalized Recommendations** | Collaborative filtering based on user behavior | `generateRecommendations()` in `src/lib/ai.js` |
+| **Sales Forecasting** | Predicting future sales trends | `forecastSales()` in `src/lib/ai.js` |
+| **Customer Churn Prediction** | Identifying at-risk customers for retention efforts | `predictChurn()` in `src/lib/ai.js` |
+| **Category Matching** | Zero-shot classification for automatic product categorization | `matchCategoryZeroShot()` in `src/lib/ai.js` |
+| **Offensive Content Masking** | Automatic detection and masking of inappropriate language | `maskBadWords()` in `src/lib/ai.js` |
 
 ## Project Structure
 
 ```
 my-app/
-├── prisma/
-│   └── schema.prisma          # Database schema & models
-├── public/                     # Static assets
-├── src/
-│   ├── app/                    # Next.js App Router
+├── prisma/                     # Database schema and migrations
+│   └── schema.prisma          # Complete database schema with relations
+├── public/                     # Static assets (images, icons, etc.)
+├── src/                        # Source code
+│   ├── app/                    # Next.js App Router (pages and API routes)
 │   │   ├── api/                # Backend API routes
-│   │   ├── (frontend pages)    # Frontend pages
-│   │   ├── layout.js
-│   │   └── page.js
+│   │   │   ├── admin/          # Admin-only endpoints
+│   │   │   ├── auth/           # Authentication endpoints
+│   │   │   ├── cart/           # Shopping cart endpoints
+│   │   │   ├── categories/     # Category management
+│   │   │   ├── custom-orders/  # Custom order processing
+│   │   │   ├── offers/         # Price negotiation system
+│   │   │   ├── orders/         # Order management
+│   │   │   ├── payments/       # Payment processing
+│   │   │   ├── products/       # Product catalog
+│   │   │   ├── recommendations/# AI recommendations
+│   │   │   ├── reviews/        # Product reviews
+│   │   │   ├── search/         # Semantic search
+│   │   │   ├── stats/          # Platform statistics
+│   │   │   ├── upload-image/   # File upload handling
+│   │   │   └── users/          # User management
+│   │   ├── (frontend pages)    # All user-facing pages
+│   │   │   ├── admin/          # Admin dashboard
+│   │   │   ├── cart/           # Shopping cart
+│   │   │   ├── checkout/       # Payment processing
+│   │   │   ├── custom-order/   # Custom order creation
+│   │   │   ├── grocery/        # Grocery-specific products
+│   │   │   ├── login/          # Authentication
+│   │   │   ├── offers/         # Offer management
+│   │   │   ├── orders/         # Order history
+│   │   │   ├── payments/       # Payment history
+│   │   │   ├── profile/        # User profile
+│   │   │   ├── products/       # Product browsing
+│   │   │   ├── register/       # User registration
+│   │   │   ├── seller/         # Seller dashboard
+│   │   │   ├── search/         # Search interface
+│   │   │   └── wishlist/       # Saved items
+│   │   ├── layout.js           # Root layout
+│   │   ├── page.js             # Homepage
+│   │   └── middleware.js       # Authentication middleware
 │   ├── components/             # Reusable UI components
-│   │   ├── common/             # Button, Card, Input
-│   │   ├── layout/             # Navbar, Footer
-│   │   └── product/            # ProductCard
+│   │   ├── common/             # Primitive components (Button, Input, Card)
+│   │   ├── layout/             # Structural components (Navbar, Footer)
+│   │   ├── product/            # Product-specific components
+│   │   └── Providers.js        # Context providers wrapper
 │   ├── context/                # React Context providers
-│   │   ├── AuthContext.js
-│   │   └── CartContext.js
-│   ├── lib/                    # Core utilities
-│   │   ├── ai.js               # AI/ML functions
-│   │   ├── auth.js             # JWT & password utilities
+│   │   ├── AuthContext.js      # Authentication state
+│   │   ├── CartContext.js      # Shopping cart state
+│   │   ├── ProductContext.js   # Product catalog state
+│   │   └── index.js            # Context exports
+│   ├── lib/                    # Core utilities and helpers
+│   │   ├── ai.js               # AI/ML functions using HuggingFace
+│   │   ├── auth.js             # JWT and password utilities
 │   │   └── prisma.js           # Prisma client instance
-│   ├── middleware.js           # Auth middleware
-│   └── services/               # Service layer (auth, product, cart, order, payment, review, recommendation, stats, admin)
+│   └── services/               # Business logic layer
+│       ├── api.js              # HTTP client with request/response interceptors
+│       ├── adminService.js     # Admin-specific operations
+│       ├── authService.js      # Authentication flows
+│       ├── cartService.js      # Cart and wishlist management
+│       ├── orderService.js     # Order processing (regular & custom)
+│       ├── productService.js   # Product catalog operations
+│       ├── recommendationService.js # AI recommendations
+│       ├── reviewService.js    # Review management
+│       ├── statsService.js     # Platform statistics
+│       └── index.js            # Service exports
+├── .env                        # Environment variables (not in version control)
+├── .gitignore                  # Git ignore rules
+├── jsconfig.json               # JavaScript/TypeScript configuration
+├── next.config.js              # Next.js configuration
+├── package.json                # Dependencies and scripts
+├── package-lock.json           # Locked dependency versions
+├── postcss.config.mjs          # PostCSS configuration
+└── README.md                   # This file
 ```
 
-## Getting Started
+## Database Schema
 
-### Prerequisites
-- Node.js 18+
-- PostgreSQL database
-- Environment variables configured (see below)
+The platform uses a normalized PostgreSQL schema designed for scalability and data integrity:
 
-### Installation
+### Core Models
 
-```bash
-cd my-app
-npm install
-```
+1. **User** - Platform users with role-based access control (BUYER, SELLER, ADMIN)
+   - Tracks device sessions (max 2 concurrent devices)
+   - Location data for distance-based calculations
+   - 2FA support for enhanced security
 
-### Environment Variables
+2. **UserProfile** - Extended user information with AI tracking fields
+   - Behavioral analytics (avg order value, purchase frequency)
+   - Browsing and purchase history for recommendations
+   - Interests and preferences for personalization
+   - Address fields with Bangladesh-specific divisions/districts
 
-Create a `.env` file in the `my-app/` directory:
+3. **Category** - Hierarchical product categorization
+   - Self-referential for unlimited subcategory nesting
+   - Active/inactive status for catalog management
+   - Image support for visual navigation
 
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/ecommerce_db
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-JWT_EXPIRES_IN=7d
-```
+4. **Product** - Items available for purchase
+   - Dual pricing (original/discounted) for promotions
+   - Product type distinction (REGULAR/GROCERY)
+   - Grocery-specific attributes (unit, weight, expiry, organic)
+   - Negotiable pricing with AI-suggested boundaries
+   - AI-generated tags and embeddings for search
+   - Stock management and status tracking
 
-### Database Setup
+5. **Order** - Customer purchases
+   - Structured address fields for shipping/billing
+   - Distance calculation between buyer and seller
+   - Shipping method and cost based on distance
+   - AI delivery time predictions and risk scoring
+   - Tax, discount, and shipping calculations
+   - Order number generation for tracking
 
-```bash
-npx prisma migrate dev    # Run migrations
-npx prisma generate       # Generate Prisma client
-```
+6. **OrderItem** - Individual products within an order
+   - Price snapshot at time of purchase
+   - Offer discount tracking
+   - Quantity and final price
 
-### Run Development Server
+7. **Payment** - Financial transactions
+   - Multiple payment method support (Bkash, COD, etc.)
+   - Fraud detection scoring and flagging
+   - Transaction ID tracking for reconciliation
+   - Refund and dispute handling
 
-```bash
-npm run dev
-```
+8. **Review** - Product feedback
+   - Rating system (1-5 stars)
+   - Sentiment analysis scoring
+   - Fake review detection with confidence scores
+   - Helpful/reported voting system
+   - Verification status for authenticity
 
-Visit [http://localhost:3000](http://localhost:3000).
+9. **Wishlist** - Saved products for future purchase
+   - Unique constraint per user/product combination
+   - Simple many-to-many relationship
 
-## Frontend Documentation
+10. **Cart** - Temporary purchase collection
+    - One cart per user with item aggregation
+    - Price calculation including discounts
+    - Integration with order creation flow
 
-### Pages & Routes
+11. **Offer** - Price negotiation system
+    - Initial offer, counter-offer, and final price tracking
+    - AI-suggested acceptable price and confidence
+    - Expiration and status management
+    - Negotiation message history
 
-| Route | Description | Auth Required |
-|-------|-------------|---------------|
-| `/` | Home page with featured products, categories carousel, AI recommendations | No |
-| `/products` | Product listing with filtering, search, sorting | No |
-| `/products/[id]` | Product detail page with reviews & offers | Optional |
-| `/categories` | Browse all categories | No |
-| `/grocery` | Grocery products with filters (organic, freshness) | No |
-| `/cart` | Shopping cart with checkout entry | Yes |
-| `/checkout` | Checkout with Bkash/COD payment | Yes |
-| `/orders` | User's order history | Yes |
-| `/orders/[id]` | Order detail & status tracking | Yes |
-| `/search` | AI-powered search with semantic matching | No |
-| `/reviews` | Product reviews page | No |
-| `/wishlist` | Saved wishlist items | Yes |
-| `/offers` | Price negotiation / offers management | Yes |
-| `/custom-order` | Create custom order for sellers | Yes |
-| `/payments` | Payment history & management | Yes |
-| `/profile` | User profile & settings | Yes |
-| `/register` | User registration (Buyer/Seller) | No |
-| `/login` | User login (max 2 devices per account) | No |
+12. **ProductRecommendation** - AI-generated suggestions
+    - Recommendation scoring algorithm
+    - Reason explanation for transparency
+    - Bidirectional relationship tracking
 
-### Admin Pages
+13. **SearchHistory** - User search behavior tracking
+    - Query storage with applied filters
+    - Results count for analytics
+    - AI-generated suggestions storage
 
-| Route | Description |
-|-------|-------------|
-| `/admin` | Admin dashboard overview |
-| `/admin/orders` | Manage all orders (regular & custom) |
-| `/admin/users` | User management, verification, banning |
-| `/admin/products` | Manage all products |
-| `/admin/products/[id]` | Edit specific product |
-| `/admin/categories` | Manage categories |
-| `/admin/recommendations` | Manage product recommendations |
-| `/admin/churn-predictions` | AI churn predictions overview |
-| `/admin/analytics/full` | Full analytics dashboard with charts |
+14. **SalesAnalytics** - Business intelligence data
+    - Daily revenue and order aggregation
+    - Category breakdown and top products
+    - Trend analysis foundation
 
-### Seller Pages
+15. **TrendingProduct** - Popularity tracking
+    - AI-calculated trend scores
+    - View and purchase counting
+    - Search ranking integration
+    - Time-period based analysis (daily/weekly/monthly)
 
-| Route | Description |
-|-------|-------------|
-| `/seller/orders` | Seller's product orders |
-| `/seller/products` | Seller's product listings |
-| `/seller/products/add` | Add new product |
-| `/seller/products/[id]/edit` | Edit product |
-| `/seller/custom-orders/[id]` | Custom order detail & management |
+16. **ChurnPrediction** - Customer retention analytics
+    - Churn probability scoring
+    - Risk level categorization (low/medium/high)
+    - Contributing factors storage
+    - Prediction timestamp for freshness
 
-### Key Components
+17. **CustomOrder** - Bespoke product requests
+    - Buyer-to-seller custom order workflow
+    - Structured address fields like regular orders
+    - Shipping method and distance calculation
+    - Multi-stage status workflow
+    - Item-level verification and pricing
 
-- **Navbar** (`src/components/layout/Navbar.js`) - Dynamic navigation with role-based links
-- **ProductCard** (`src/components/product/ProductCard.js`) - Reusable product display with quick actions
-- **Card, Button, Input** (`src/components/common/`) - Foundation UI components
+18. **CustomOrderItem** - Individual items in custom orders
+    - Requested vs. verified quantities and prices
+    - Unit specification (kg, liters, pieces, etc.)
+    - Status tracking through verification process
+    - Seller notes for communication
 
-### Context Providers
+### Enumerations
 
-- **AuthContext** - Manages auth state, login/logout, user data
-- **CartContext** - Manages cart state, add/remove items, totals
+- **Role**: BUYER, SELLER, ADMIN
+- **OfferStatus**: PENDING, ACCEPTED, REJECTED, COUNTERED, EXPIRED, CANCELLED
+- **OrderStatus**: PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED, RETURNED
+- **PaymentStatus**: PENDING, COMPLETED, FAILED, REFUNDED, FLAGGED
+- **ProductType**: REGULAR, GROCERY
+- **ProductStatus**: ACTIVE, INACTIVE, OUT_OF_STOCK, DELETED, EXPIRED
+- **CustomOrderStatus**: PENDING, VERIFIED, CONFIRMED, PROCESSING, OUT_FOR_DELIVERY, SHIPPED, DELIVERED, CANCELLED
+- **CustomItemStatus**: REQUESTED, AVAILABLE, UNAVAILABLE, ADJUSTED
 
-### Services Layer
+## API Documentation
 
-| File | Purpose |
-|------|---------|
-| `api.js` | HTTP client with interceptors |
-| `authService.js` | Login, register, profile |
-| `productService.js` | Products & categories |
-| `cartService.js` | Cart & wishlist |
-| `orderService.js` | Orders management |
-| `paymentService.js` | Payment processing |
-| `reviewService.js` | Reviews |
-| `recommendationService.js` | AI recommendations |
-| `statsService.js` | Platform statistics |
+All API routes follow RESTful conventions and are prefixed with `/api`. Authentication is required for most endpoints via JWT Bearer tokens.
 
-### Data Flow
+### Authentication Routes
 
-```
-Component → Service (src/services/) → API Route (src/app/api/) → Prisma → PostgreSQL
-                                    ↓
-                               AI Engine (src/lib/ai.js)
-```
-
-## Backend Documentation
-
-### Authentication
-
-JWT-based authentication. Protected routes require Bearer token in `Authorization` header.
-
-- **Login**: `POST /api/auth/login`
-- **Register**: `POST /api/auth/register`
-- **Middleware**: `src/middleware.js` validates tokens for protected routes
-- **Device Limit**: Max 2 devices per user account
-- **Roles**: BUYER, SELLER, ADMIN
-
-### API Routes
-
-#### Auth Routes
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | POST | `/api/auth/register` | Register new user (buyer/seller) | No |
-| POST | `/api/auth/login` | Login, returns JWT + user data | No |
+| POST | `/api/auth/login` | Login user, returns JWT + user data | No |
+| POST | `/api/auth/forgot-password` | Request a password reset link by email | No |
+| POST | `/api/auth/reset-password` | Reset password using a valid reset token | No |
+| POST | `/api/auth/2fa/send` | Send 2FA verification code | No |
+| POST | `/api/auth/2fa/verify` | Verify 2FA code | No |
 
-#### Product Routes
+### Product Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/products` | List products with filters (category, price, type, search, sort, pagination) | No |
-| POST | `/api/products` | Create product (generates AI embedding & price suggestions) | Seller |
+| POST | `/api/products` | Create product (generates AI embedding & price suggestions) | Seller/Admin |
 | GET | `/api/products/[id]` | Get single product with seller, category, reviews | No |
-| PUT | `/api/products/[id]` | Update product | Seller |
-| DELETE | `/api/products/[id]` | Delete product | Seller |
+| PUT | `/api/products/[id]` | Update product | Seller/Admin |
+| DELETE | `/api/products/[id]` | Delete product | Seller/Admin |
 
 **Filters**: `categoryId`, `sellerId`, `minPrice`, `maxPrice`, `isNegotiable`, `productType` (REGULAR/GROCERY), `isOrganic`, `freshness`, `search`, `status`, `sortBy`, `sortOrder`, `page`, `limit`
 
-#### Category Routes
+### Category Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/categories` | List categories (top-level by default, `parentId`, `name`, `all` filters) | No |
 | POST | `/api/categories` | Create category | Admin |
 | PUT | `/api/categories` | Update category | Admin |
 | DELETE | `/api/categories` | Delete category (deactivates if has products) | Admin |
 
-#### Cart Routes
+### Cart Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/cart?type=cart\|wishlist` | Get cart or wishlist with suggested products | Yes |
 | POST | `/api/cart` | Add item to cart or wishlist (`type=wishlist` for wishlist) | Yes |
 | PUT | `/api/cart` | Update cart item quantity | Yes |
 | DELETE | `/api/cart?itemId=X\|clearAll=true` | Remove item or clear cart | Yes |
 
-#### Order Routes
+### Order Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/orders?type=buyer\|seller\|all&status=X` | Get orders (filters by role and status) | Yes |
 | POST | `/api/orders` | Create order from cart (validates stock, calculates tax/shipping by distance, AI delivery prediction) | Buyer |
-| PUT | `/api/orders` | Update order status (`cancel`, `confirm`, `ship`, `deliver`, `return`) | Buyer/Seller/Admin |
+| PUT | `/api/orders` | Update order status (`cancel`, `confirm`, `ship`, `deliver`, `return`) | Based on role/action |
+| PUT | `/api/orders/[id]` | Update order details (shipping address, notes, etc.) | Seller/Admin |
+| DELETE | `/api/orders/[id]` | Delete order | Admin |
 
-**Order Status**: PENDING → CONFIRMED → SHIPPED → DELIVERED → RETURNED / CANCELLED
+**Order Status Flow**: PENDING → CONFIRMED → SHIPPED → DELIVERED → RETURNED / CANCELLED
 
-#### Custom Order Routes
+### Custom Order Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/custom-orders?type=buyer\|seller&status=X` | Get custom orders | Yes |
 | POST | `/api/custom-orders` | Create custom order with items (calculates distance-based shipping) | Buyer |
-| PUT | `/api/custom-orders/[id]` | Update custom order status (verify, confirm, process, ship, deliver, cancel) | Seller |
+| PUT | `/api/custom-orders/[id]` | Update custom order status (verify, confirm, process, ship, deliver, cancel) | Seller/Admin |
 | POST | `/api/custom-orders/[id]/confirm` | Seller confirms items/prices | Seller |
+| DELETE | `/api/custom-orders/[id]` | Delete custom order | Buyer/Admin |
 
-**Custom Order Status**: PENDING → VERIFIED → CONFIRMED → PROCESSING → OUT_FOR_DELIVERY → DELIVERED / CANCELLED
+**Custom Order Status Flow**: PENDING → VERIFIED → CONFIRMED → PROCESSING → OUT_FOR_DELIVERY → DELIVERED / CANCELLED
 
-#### Offer Routes (Price Negotiation)
+### Offer Routes (Price Negotiation)
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/offers?type=sent\|received&status=X` | Get offers (sent/received by user) | Yes |
 | POST | `/api/offers` | Create offer with AI price suggestion & acceptance prediction | Buyer |
 | PUT | `/api/offers` | Respond to offer (`accept`, `reject`, `counter`, `accept_counter`) | Buyer/Seller |
+| DELETE | `/api/offers/[id]` | Delete offer | Buyer/Admin |
 
-#### Payment Routes
+### Payment Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/payments` | Get payments (all for admin, own products for seller, own for buyer) | Yes |
 | POST | `/api/payments` | Process payment (Bkash/COD, fraud detection, updates order status) | Buyer |
 | PUT | `/api/payments` | Update payment (`refund`, `approve`) | Seller/Admin |
-| DELETE | `/api/payments` | Delete payment | Seller/Admin |
+| DELETE | `/api/payments/[id]` | Delete payment | Seller/Admin |
 
 **Payment Methods**: `bkash` (requires transactionId & mobileNumber), `cod`
 
-#### Review Routes
+### Review Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/reviews?productId=X` | Get reviews with stats (avg rating, distribution) | No |
 | POST | `/api/reviews` | Create review with AI sentiment analysis & fake detection | Buyer |
 | PUT | `/api/reviews` | Update review | Buyer |
 | DELETE | `/api/reviews?reviewId=X` | Delete review | Buyer/Admin |
 
-#### Search Routes
+### Search Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/search?q=X&categoryId=X&minPrice=X&maxPrice=X&ai=true` | Semantic search with embedding-based re-ranking | No |
-| GET | `/api/search?suggestions=true&q=X` | AI-powered autocomplete suggestions | No |
+The platform exposes a single search endpoint that serves both full-text browsing and
+autocomplete. It powers the `/search` page and the Navbar search box.
 
-#### Recommendation Routes
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/search?q=X&categoryId=X&minPrice=X&maxPrice=X&ai=true` | Semantic search with embedding + text ranking | No (optional auth for history) |
+| GET | `/api/search?suggestions=true&q=X` | Autocomplete suggestions | No |
+| GET | `/api/search/history` | Recent searches for the authenticated user | Yes |
+| DELETE | `/api/search/history` | Clear the authenticated user's search history | Yes |
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+#### Full Search (`GET /api/search`)
+
+**Query parameters**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | `string` | — | Search query. Omit to return the full catalog (paginated). |
+| `categoryId` | `string` | — | Restrict results to a single category. |
+| `minPrice` | `number` | `0` | Minimum price filter. |
+| `maxPrice` | `number` | — | Maximum price filter. |
+| `isNegotiable` | `"true"`/`"false"` | — | Restrict to negotiable / non-negotiable products. |
+| `sortBy` | `string` | `relevance` | One of `relevance`, `price_asc`, `price_desc`, `newest`, `rating`. |
+| `page` | `number` | `1` | Page number (1-based). |
+| `limit` | `number` | `20` | Results per page. |
+| `ai` | `"true"` | — | Marks the response as AI-powered (informational only). |
+
+**How ranking works**
+
+When a query is provided, the endpoint fetches candidate products and ranks them by a
+combination of two signals:
+
+1. **Text matching (authoritative)** — the query is tokenized and matched against each
+   product's `name`, `description`, and `tags`. An exact substring match scores highest;
+   partial (token-level) matches score proportionally. Any product that matches any query
+   token is guaranteed to be returned.
+2. **Embedding similarity (booster)** — the query and each product are converted to
+   feature-hashed, L2-normalized vectors via `generateEmbedding()` in `src/lib/ai.js`, and
+   their cosine (dot-product) similarity adds a secondary ranking signal for semantic
+   relevance.
+
+This hybrid approach ensures that legitimate keyword matches are always surfaced (previously
+they could be dropped when sparse hashed embeddings produced zero/negative similarity), while
+still leveraging semantic similarity to surface closely-related products that don't share
+literal keywords.
+
+**Response shape**
+
+```json
+{
+  "products": [
+    {
+      "id": "…",
+      "name": "…",
+      "description": "…",
+      "price": 0,
+      "category": { "…": "…" },
+      "seller": { "id": "…", "name": "…" },
+      "averageRating": 4.5,
+      "reviewCount": 12,
+      "relevanceScore": 1.85
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 42,
+    "totalPages": 3
+  },
+  "aiSuggestions": [],
+  "aiPowered": true
+}
+```
+
+If the caller includes a valid `Authorization` header, the query is also persisted to the
+user's `SearchHistory` so it appears in their recent searches.
+
+#### Autocomplete (`GET /api/search?suggestions=true`)
+
+Returns up to 100 matching product names (case-insensitive substring match on `name`)
+wrapped as `{ "suggestions": ["…", "…"] }`. The client debounces requests and displays the
+first 8.
+
+### Recommendation Routes
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/recommendations?userId=X&limit=20` | Get personalized recommendations | Yes (optional) |
 | POST | `/api/recommendations` | Generate AI recommendations for user | Admin |
 | PUT | `/api/recommendations` | Update recommendation score/reason | Admin |
 | DELETE | `/api/recommendations` | Delete recommendation | Admin |
 
-#### Admin Routes
+### Admin Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/admin/orders` | Get all regular + custom orders | Admin |
 | GET | `/api/admin/users` | Get users with churn predictions | Admin |
 | PUT | `/api/admin/users` | Update user (role, verify, ban, delete) | Admin |
@@ -308,81 +475,438 @@ JWT-based authentication. Protected routes require Bearer token in `Authorizatio
 | GET | `/api/admin/analytics` | Full analytics (revenue, sales forecast, trending, top products) | Admin |
 | GET | `/api/admin/churn-predictions` | Churn predictions with filtering | Admin |
 
-#### Stats & Users Routes
+### Stats & Users Routes
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
 | GET | `/api/stats` | Public platform stats (sellers, products, satisfaction) | No |
 | GET | `/api/users?role=X` | List users (public sellers, optional auth) | No |
 | GET/PUT | `/api/users/profile` | Get/update user profile | Yes |
 | POST | `/api/upload-image` | Upload product image | Yes |
 
-### Database Schema
+## Getting Started
 
-**Core Models**:
-- `User` - Buyers, sellers, admins with role-based access & device tracking
-- `UserProfile` - Extended profile with AI fields (browsing history, purchase history, interests, behavioral analytics)
-- `Category` - Hierarchical categories with parent/children relationships
-- `Product` - Regular or grocery products with negotiable pricing, AI tags, embeddings, stock management
-- `ProductRecommendation` - Personalized recommendations with scores
-- `Offer` - Price negotiation with AI suggestions, counter-offers, expiration
-- `Cart` / `CartItem` - Shopping cart with offer pricing
-- `Wishlist` - Saved products
-- `Order` / `OrderItem` - Orders with AI delivery predictions, distance-based shipping
-- `Payment` - Payments with fraud detection scores
-- `Review` - Reviews with sentiment scores & fake detection
-- `SearchHistory` - Search tracking with AI suggestions
-- `SalesAnalytics` - Daily revenue & order tracking
-- `TrendingProduct` - AI-calculated trend scores
-- `ChurnPrediction` - Customer churn risk levels
-- `CustomOrder` / `CustomOrderItem` - Custom orders with seller verification workflow
+### Prerequisites
 
-### AI Integration
+- Node.js 18+
+- PostgreSQL database
+- Environment variables configured (see below)
 
-| Function | File | Usage |
-|----------|------|-------|
-| `analyzeSentiment` | `src/lib/ai.js` | Review content analysis |
-| `detectFakeReview` | `src/lib/ai.js` | Zero-shot fake review detection |
-| `generateEmbedding` | `src/lib/ai.js` | Semantic search embeddings |
-| `getAISearchSuggestions` | `src/lib/ai.js` | Search autocomplete |
-| `suggestNegotiationPrice` | `src/lib/ai.js` | Price negotiation engine |
-| `predictOfferAcceptance` | `src/lib/ai.js` | Offer success probability |
-| `detectFraud` | `src/lib/ai.js` | Payment fraud detection |
-| `predictDeliveryTime` | `src/lib/ai.js` | Delivery estimation |
-| `generateRecommendations` | `src/lib/ai.js` | Collaborative filtering |
-| `forecastSales` | `src/lib/ai.js` | Sales forecasting |
-| `predictChurn` | `src/lib/ai.js` | Customer churn prediction |
-| `matchCategoryZeroShot` | `src/lib/ai.js` | AI category assignment |
+### Installation
 
-## Available Scripts
+```bash
+# Clone the repository
+git clone <repository-url>
+cd my-app
 
-| Script | Command | Description |
-|--------|---------|-------------|
-| `dev` | `npm run dev` | Start development server |
-| `build` | `npm run build` | Build for production |
-| `start` | `npm run start` | Start production server |
-| `db:generate` | `npm run db:generate` | Generate Prisma client |
-| `db:push` | `npm run db:push` | Push schema to database |
-| `db:migrate` | `npm run db:migrate` | Run migrations |
+# Install dependencies
+npm install
+```
+
+### Environment Variables
+
+Create a `.env` file in the `my-app/` directory:
+
+```env
+# Database Connection (Neon PostgreSQL)
+# Pooled connection (has `-pooler` in hostname) used by the app runtime.
+DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.REGION.aws.neon.tech/DBNAME?sslmode=require"
+# Direct (unpooled) connection used by the Prisma CLI (migrations / db push).
+DATABASE_URL_UNPOOLED="postgresql://USER:PASSWORD@HOST.REGION.aws.neon.tech/DBNAME?sslmode=require"
+
+# JWT Authentication
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+JWT_EXPIRES_IN=7d
+
+# Optional: Two Factor Authentication
+TWO_FACTOR_TEMP_EXPIRES_IN=5m
+```
+
+### Database Setup
+
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Run migrations
+npx prisma migrate dev
+
+# Optional: Seed database with initial data
+# npx prisma db seed
+```
+
+### Run Development Server
+
+```bash
+npm run dev
+```
+
+Visit [http://localhost:3000](http://localhost:3000).
+
+### Build for Production
+
+```bash
+npm run build
+npm run start
+```
 
 ## User Roles & Permissions
 
 | Role | Capabilities |
 |------|-------------|
-| **BUYER** | Browse products, add to cart/wishlist, create orders, make offers, write reviews, track orders |
-| **SELLER** | Create/manage products, manage orders, respond to offers, handle custom orders, view analytics |
-| **ADMIN** | Full platform management, user management, category management, analytics dashboard, AI recommendation control, churn prediction oversight |
+| **BUYER** | Browse products, add to cart/wishlist, create orders, make offers, write reviews, track orders, manage profile |
+| **SELLER** | Create/manage products, manage orders, respond to offers, handle custom orders, view analytics, manage profile |
+| **ADMIN** | Full platform management, user management, category management, analytics dashboard, AI recommendation control, churn prediction oversight, system configuration |
+
+### Permission Matrix
+
+| Action | Buyer | Seller | Admin |
+|--------|-------|--------|-------|
+| View Products | ✓ | ✓ | ✓ |
+| Create Products | ✗ | ✓ | ✓ |
+| Edit Own Products | ✗ | ✓ | ✓ |
+| Edit Any Products | ✗ | ✗ | ✓ |
+| Delete Products | ✗ | ✗ | ✓ |
+| View Orders | Own | Own/Seller's | All |
+| Create Orders | ✓ | ✗ | ✗ |
+| Cancel Orders | Own (Pending/Confirmed) | ✗ | Any |
+| Confirm Orders | ✗ | Own Products | Any |
+| Ship Orders | ✗ | Own Products | Any |
+| Deliver/Return Orders | Own (Delivered) | Own Products | Any |
+| View Payments | Own | Own Products | All |
+| Process Payments | ✓ (Own) | ✗ | Any |
+| Refund Payments | ✗ | Own Products | Any |
+| View Reviews | ✓ | ✓ | ✓ |
+| Create Reviews | ✓ (Purchased) | ✗ | ✗ |
+| Edit Own Reviews | ✓ | ✗ | ✗ |
+| Delete Reviews | Own/Admin | Own/Admin | Any |
+| Make Offers | ✓ | ✗ | ✗ |
+| Respond to Offers | ✗ | Own Products | Any |
+| View Wishlist | ✓ | ✓ | ✓ |
+| Manage Wishlist | ✓ | ✓ | ✓ |
+| View Analytics | Limited | Own Products | Full |
+| Manage Categories | ✗ | ✗ | ✓ |
+| Manage Users | ✗ | ✗ | ✓ |
+| Generate AI Recommendations | ✗ | ✗ | ✓ |
+| View Churn Predictions | ✗ | ✗ | ✓ |
 
 ## Key Features
 
-- **AI Smart Bargaining**: Intelligent price negotiation with AI-suggested acceptable prices and acceptance predictions
-- **Semantic Search**: Vector embeddings powered search with autocomplete suggestions
-- **AI Recommendations**: Personalized product recommendations based on browsing history
-- **Fraud Detection**: AI-powered payment fraud detection with risk scoring
-- **Fake Review Detection**: Zero-shot classification to identify suspicious reviews
-- **Distance-Based Shipping**: Haversine formula calculates shipping cost by buyer-seller distance
-- **Churn Prediction**: AI-driven customer retention insights for admins
-- **Sales Forecasting**: Moving average trend analysis for business intelligence
-- **Category Matching**: Zero-shot classification for automatic product categorization
-- **Multi-Device Tracking**: Max 2 concurrent device sessions per user
-- **Custom Orders**: Buyer-seller custom product ordering with verification workflow
+### AI-Powered Intelligence
+
+1. **Semantic Search & Discovery**
+   - Hybrid ranking that combines authoritative token-based text matching with
+     feature-hashed, L2-normalized vector embeddings for semantic relevance
+   - Token-level matching against `name`, `description`, and `tags` so partial and
+     multi-word queries still return results (not just exact substrings)
+   - Context-aware autocomplete suggestions
+   - Intelligent re-ranking by relevance, price, newest, or average rating
+   - Full-featured `/search` interface with filters (category, price range), voice
+     search, and persisted search history
+
+2. **Smart Price Negotiation**
+   - AI-suggested acceptable price ranges
+   - Offer acceptance probability prediction
+   - Dynamic counter-offer suggestions
+   - Market-based pricing insights
+
+3. **Personalized Experience**
+   - Collaborative filtering recommendations
+   - Behavior-based product suggestions
+   - Browsing history analysis
+   - Interest modeling for discovery
+
+4. **Trust & Safety**
+   - Real-time fraud detection scoring
+   - Fake review identification
+   - Offensive content filtering
+   - Trust scoring for users and transactions
+
+5. **Operational Intelligence**
+   - Sales forecasting and trend analysis
+   - Customer churn prediction
+   - Inventory optimization suggestions
+   - Delivery time estimation
+
+### Core E-Commerce Functionality
+
+1. **Product Catalog**
+   - Regular and grocery product types
+   - Attribute-based filtering (organic, freshness, etc.)
+   - Image galleries and detailed descriptions
+   - Stock management and availability tracking
+
+2. **Shopping Experience**
+   - Intuitive product browsing and filtering
+   - Advanced search with multiple criteria
+   - Wishlist and saved items
+   - Price comparison and sorting options
+
+3. **Cart & Checkout**
+   - Persistent cart across sessions
+   - Multiple address management
+   - Tax and shipping calculation
+   - Order review before purchase
+
+4. **Payment Processing**
+   - Multiple payment methods (Bkash, Cash on Delivery)
+   - Secure transaction handling
+   - Payment status tracking
+   - Refund and dispute resolution
+
+5. **Order Management**
+   - Real-time order status updates
+   - Shipping tracking and notifications
+   - Return and refund processing
+   - Order history and invoicing
+
+6. **User Accounts**
+   - Profile management and preferences
+   - Order history and tracking
+   - Saved addresses and payment methods
+   - Notification preferences
+
+### Specialized Features
+
+1. **Custom Orders**
+   - Buyer-seller bespoke product requests
+   - Item verification and pricing workflow
+   - Custom order negotiation
+   - Specialized shipping and handling
+
+2. **Multi-Vendor Marketplace**
+   - Seller dashboard and product management
+   - Order fulfillment tools
+   - Performance analytics
+   - Commission and fee structures
+
+3. **Administrative Controls**
+   - Comprehensive user management
+   - Content moderation tools
+   - Analytics and reporting dashboard
+   - System configuration and maintenance
+
+4. **Mobile-First Design**
+   - Responsive layout for all devices
+   - Touch-optimized interface
+   - Progressive web app capabilities
+   - Offline support for browsing
+
+## Search
+
+The search feature is accessible at `/search` and from the Navbar search box. It combines
+keyword matching with semantic (AI) ranking to return relevant products, and it supports
+filters, voice input, suggestions, and history.
+
+### User Interface
+
+The `/search` page provides:
+
+- **Search input** — a text field with a live autocomplete dropdown (suggestions are fetched
+  for queries of 2+ characters and debounced to avoid excessive requests).
+- **Voice search** — a microphone button that uses the browser's native
+  [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API)
+  (`SpeechRecognition`) to transcribe speech into a query. This requires a supporting browser
+  (Chrome, Edge, or Safari) and a network connection to the speech service. No ML model is
+  downloaded; transcription happens on the browser/cloud side.
+- **Filters** — category, minimum price, maximum price, and sort order
+  (`relevance`, `price_asc`, `price_desc`, `newest`, `rating`).
+- **Recent searches** — persisted server-side (in the `SearchHistory` table) for authenticated
+  users, or in `localStorage` for anonymous users.
+- **AI search indicator** — a badge shown when semantic ranking enriched the results.
+
+### How Results Are Ranked
+
+Ranking is implemented in `src/app/api/search/route.js` and `src/lib/ai.js`. It uses a hybrid
+of two signals so that both literal and semantically-related products are surfaced:
+
+1. **Text matching (authoritative)** — the query is lowercased and split into tokens, then
+   matched against the concatenated `name`, `description`, and `tags` of each product. An exact
+   substring match scores highest; partial token matches score proportionally. Any product
+   matching at least one token is always returned.
+2. **Embedding similarity (booster)** — `generateEmbedding()` (in `src/lib/ai.js`) converts text
+   into a 256-dimensional, feature-hashed, L2-normalized vector (a lightweight, deterministic
+   bag-of-words hash — no heavy ML runtime is required, which keeps serverless deployments
+   light). The cosine (dot-product) similarity between the query and each product's stored
+   embedding is added as a secondary ranking signal.
+
+Products are then filtered and sorted by `relevanceScore`, followed by the requested sort order
+when one is provided. See the [Search Routes](#search-routes) section for the full request and
+response contract.
+
+### Voice Search Error Handling
+
+The speech recognition layer treats the following Web Speech API `error` codes as
+**non-fatal**, resolving with an empty transcript and showing a friendly "No speech detected"
+message instead of throwing:
+
+- `no-speech` — recognition finished without detecting speech.
+- `aborted` — recognition was cancelled (e.g. user toggled the microphone off).
+- `network` — the browser could not reach the speech recognition service (common in Firefox,
+  on non-HTTPS origins, or when the service is blocked/unreachable).
+
+All other error codes reject the promise and surface a descriptive message. A browser without
+any speech support is detected up front via the `getSpeechRecognition()` null check.
+
+### Related Files
+
+| Path | Responsibility |
+|------|----------------|
+| `src/app/search/page.js` | Search UI: input, suggestions, filters, voice search, history |
+| `src/app/api/search/route.js` | Search endpoint: ranking, filtering, pagination, history |
+| `src/app/api/search/history/route.js` | Recent-search history retrieval and clearing |
+| `src/services/productService.js` | Client-side service layer (`searchProducts`, `getSearchSuggestions`) |
+| `src/components/layout/Navbar.js` | Search box with autocomplete in the header |
+| `src/lib/ai.js` | `generateEmbedding()` and `getAISearchSuggestions()` |
+
+## Available Scripts
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `dev` | `npm run dev` | Start development server with hot reload |
+| `build` | `npm run build` | Build application for production |
+| `start` | `npm run start` | Start production server |
+| `db:generate` | `npx prisma generate` | Generate Prisma client from schema |
+| `db:migrate` | `npx prisma migrate dev` | Run database migrations |
+| `db:push` | `npx prisma db push` | Push schema changes to database |
+| `db:seed` | `npx prisma db seed` | Seed database with initial data |
+| `lint` | `npm run lint` | Run ESLint for code quality |
+| `format` | `npm run format` | Format code with Prettier |
+
+## Environment Variables
+
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/ecom` | Yes |
+| `JWT_SECRET` | Secret for signing JWT tokens | `your-super-secret-key` | Yes |
+| `JWT_EXPIRES_IN` | JWT expiration time | `7d` | No (defaults to 7d) |
+| `TWO_FACTOR_TEMP_EXPIRES_IN` | 2FA token expiration | `5m` | No (defaults to 5m) |
+
+## Architecture Overview
+
+### Data Flow
+
+```
+Component → Service Layer → API Route → Prisma ORM → PostgreSQL
+                                    ↓
+                             AI Processing Layer (src/lib/ai.js)
+```
+
+### Key Architectural Patterns
+
+1. **Layered Architecture**
+   - Presentation Layer (React Components)
+   - Application Layer (Services & Context)
+   - API Layer (Next.js Routes)
+   - Data Access Layer (Prisma ORM)
+   - AI Processing Layer (HuggingFace Transformers)
+
+2. **Separation of Concerns**
+   - UI components handle presentation only
+   - Services contain business logic
+   - API routes handle HTTP concerns
+   - Prisma handles data persistence
+   - AI library handles machine learning
+
+3. **Context-Based State Management**
+   - AuthContext for user authentication state
+   - CartContext for shopping cart state
+   - ProductContext for catalog state (planned expansion)
+
+4. **Middleware-Based Security**
+   - Centralized authentication verification
+   - Role-based access control
+   - Request/response logging and monitoring
+   - CORS and security header management
+
+### Performance Optimizations
+
+1. **Client-Side**
+   - React Server Components where applicable
+   - Selective hydration for interactive elements
+   - Image optimization with Next.js Image
+   - Code splitting and dynamic imports
+   - Client-side caching with SWR/react-query patterns
+
+2. **Server-Side**
+   - Database connection pooling
+   - Query optimization with Prisma
+   - AI model caching and lazy loading
+   - HTTP caching headers
+   - Compression and minification
+
+3. **Database**
+   - Proper indexing on query fields
+   - Connection pooling configuration
+   - Read replica support (configurable)
+   - Migration-based schema evolution
+
+### Security Features
+
+1. **Authentication & Authorization**
+   - JWT-based stateless authentication
+   - HTTP-only cookie protection (where applicable)
+   - Role-based access control (RBAC)
+   - Session device limiting (max 2 devices)
+   - Two-factor authentication support
+
+2. **Data Protection**
+   - Parameterized queries to prevent SQL injection
+   - Input validation and sanitization
+   - Password hashing with bcrypt
+   - Environment variable separation
+   - CORS policy enforcement
+
+3. **API Security**
+   - Rate limiting (planned enhancement)
+   - Input validation on all endpoints
+   - Output encoding where applicable
+   - Secure headers implementation
+   - API versioning strategy (planned)
+
+## Contributing
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Ensure code passes linting (`npm run lint`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+### Code Standards
+
+- Follow existing code style and patterns
+- Write meaningful commit messages
+- Add JSDoc comments for complex functions
+- Include tests for new functionality
+- Update documentation as needed
+- Keep dependencies up to date
+
+### Reporting Issues
+
+Please use the GitHub issue tracker to report bugs or request features. Include:
+- Clear description of the issue
+- Steps to reproduce
+- Expected vs actual behavior
+- Screenshots if applicable
+- Environment information (Node.js version, browser, etc.)
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Hugging Face for Transformers.js library
+- Next.js team for the React framework
+- Prisma team for the ORM solution
+- Tailwind CSS for the utility-first CSS framework
+- All open-source contributors whose work made this project possible
+
+---
+
+*Last updated: September 2026*
+*Version: 1.0.0*

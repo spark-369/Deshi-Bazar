@@ -25,6 +25,9 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const type = searchParams.get("type"); // 'buyer', 'seller', or 'all'
+    const division = searchParams.get("division");
+    const district = searchParams.get("district");
+    const search = searchParams.get("search");
 
     let where = {};
 
@@ -70,6 +73,38 @@ export async function GET(request) {
 
     if (status) {
       where.status = status;
+    }
+
+    // Filter by division / district (parsed from the shippingAddress string)
+    const addressFilters = [];
+    if (division) {
+      addressFilters.push({ shippingAddress: { contains: division, mode: "insensitive" } });
+    }
+    if (district) {
+      addressFilters.push({ shippingAddress: { contains: district, mode: "insensitive" } });
+    }
+
+    // Generic search across order number, buyer name/email, and address
+    if (search) {
+      const searchFilter = {
+        OR: [
+          { orderNumber: { contains: search, mode: "insensitive" } },
+          { shippingAddress: { contains: search, mode: "insensitive" } },
+          {
+            user: {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
+              ],
+            },
+          },
+        ],
+      };
+      addressFilters.push(searchFilter);
+    }
+
+    if (addressFilters.length > 0) {
+      where.AND = addressFilters;
     }
 
     const orders = await prisma.order.findMany({
@@ -130,6 +165,10 @@ export async function POST(request) {
     const body = await request.json();
     const {
       shippingAddress,
+      shipCountry,
+      shipDivision,
+      shipDistrict,
+      shipPostalCode,
       notes,
       shippingMethod = "standard",
       buyerLatitude,
@@ -156,22 +195,22 @@ export async function POST(request) {
 
     // Get billing address from seller's profile (first product's seller)
     let billingAddress = "No seller address";
+    let billingCountry = "";
+    let billingDivision = "";
+    let billingDistrict = "";
+    let billingPostalCode = "";
     if (cart.items.length > 0 && cart.items[0]?.product?.sellerId) {
       const sellerProfile = await prisma.userProfile.findUnique({
         where: { userId: cart.items[0].product.sellerId },
       });
 
       if (sellerProfile) {
-        const addressParts = [];
-        if (sellerProfile.address) addressParts.push(sellerProfile.address);
-        if (sellerProfile.city) addressParts.push(sellerProfile.city);
-        if (sellerProfile.state) addressParts.push(sellerProfile.state);
-        if (sellerProfile.zipCode) addressParts.push(sellerProfile.zipCode);
-        if (sellerProfile.country) addressParts.push(sellerProfile.country);
+        billingAddress = sellerProfile.address || "No seller address";
 
-        if (addressParts.length > 0) {
-          billingAddress = addressParts.join(", ");
-        }
+        billingCountry = sellerProfile.country || "";
+        billingDivision = sellerProfile.division || sellerProfile.state || "";
+        billingDistrict = sellerProfile.district || sellerProfile.city || "";
+        billingPostalCode = sellerProfile.postalCode || sellerProfile.zipCode || "";
       }
     }
 
@@ -277,6 +316,14 @@ export async function POST(request) {
           total,
           shippingAddress,
           billingAddress,
+          shipCountry,
+          shipDivision,
+          shipDistrict,
+          shipPostalCode,
+          billingCountry: billingCountry,
+          billingDivision: billingDivision,
+          billingDistrict: billingDistrict,
+          billingPostalCode: billingPostalCode,
           notes,
           shippingMethod,
           distance,
@@ -323,14 +370,20 @@ export async function POST(request) {
         where: { cartId: cart.id },
       });
 
-      // Update user profile purchase history
-      const productIds = cart.items.map((item) => item.productId);
+      // Update user profile purchase history (flat, deduplicated list)
+      const newProductIds = cart.items.map((item) => item.productId);
+      const currentProfile = await tx.userProfile.findUnique({
+        where: { userId: user.id },
+        select: { purchaseHistory: true },
+      });
+      const currentHistory = Array.isArray(currentProfile?.purchaseHistory)
+        ? currentProfile.purchaseHistory.flat()
+        : [];
+      const updatedHistory = [...new Set([...currentHistory, ...newProductIds])];
       await tx.userProfile.update({
         where: { userId: user.id },
         data: {
-          purchaseHistory: {
-            push: productIds,
-          },
+          purchaseHistory: updatedHistory,
           totalSpent: {
             increment: total,
           },
@@ -540,9 +593,9 @@ export async function PUT(request) {
 
       case "deliver":
         // Only seller or admin can mark as delivered
-        if (!isSellerRole && !isAdmin) {
+        if (!isBuyer && !isAdmin) {
           return NextResponse.json(
-            { error: "Only seller or admin can mark as delivered" },
+            { error: "Only buyer or admin can mark as delivered" },
             { status: 403 },
           );
         }

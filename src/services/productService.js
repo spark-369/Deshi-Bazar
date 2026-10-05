@@ -55,17 +55,41 @@ export const productService = {
     return data.suggestions;
   },
 
+  // Get the authenticated user's recent searches (backend-owned)
+  async getRecentSearches() {
+    const data = await api.get("/api/search/history");
+    return data.searches || [];
+  },
+
+  // Clear the authenticated user's recent searches (backend-owned)
+  async clearRecentSearches() {
+    await api.delete("/api/search/history");
+  },
+
   // Get product reviews
-  async getProductReviews(productId, page = 1, limit = 10) {
-    const data = await api.get("/api/reviews", {
-      params: { productId, page, limit },
-    });
+  async getProductReviews(productId, page = 1, limit = 10, userId = null) {
+    const params = { page, limit };
+    if (productId) params.productId = productId;
+    if (userId) params.userId = userId;
+    const data = await api.get('/api/reviews', { params });
     return data;
   },
 
   // Add product review
   async addReview(data) {
     const result = await api.post("/api/reviews", data);
+    return result;
+  },
+
+  // Update product review
+  async updateReview(reviewId, data) {
+    const result = await api.put(`/api/reviews`, { reviewId, ...data });
+    return result;
+  },
+
+  // Delete product review
+  async deleteReview(reviewId) {
+    const result = await api.delete(`/api/reviews?reviewId=${reviewId}`);
     return result;
   },
 };

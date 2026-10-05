@@ -25,7 +25,9 @@ import {
   FaArrowLeft,
 } from "react-icons/fa";
 import { orderService } from "@/services/orderService";
+import { locationService } from "@/services/locationService";
 import { Button, Input } from "@/components/common";
+import AddressDisplay from "@/components/common/AddressDisplay";
 
 /* ── reusable modal backdrop ─────────────────────────────────────────── */
 function Modal({ open, onClose, title, children, width = "max-w-3xl" }) {
@@ -33,7 +35,7 @@ function Modal({ open, onClose, title, children, width = "max-w-3xl" }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       {/* backdrop */}
@@ -41,12 +43,12 @@ function Modal({ open, onClose, title, children, width = "max-w-3xl" }) {
 
       {/* panel */}
       <div
-        className={`relative bg-white rounded-2xl shadow-2xl w-full ${width} max-h-[90vh] overflow-y-auto`}
+        className={`relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full ${width} max-h-[95vh] sm:max-h-[90vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white">
+          <h2 className="text-base sm:text-lg font-bold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -56,7 +58,7 @@ function Modal({ open, onClose, title, children, width = "max-w-3xl" }) {
         </div>
 
         {/* body */}
-        <div className="p-6">{children}</div>
+        <div className="p-4 sm:p-6">{children}</div>
       </div>
     </div>
   );
@@ -134,7 +136,18 @@ function ProductOrderViewModal({ order, onClose }) {
             <div className="flex items-start">
               <FaMapMarkerAlt className="text-gray-400 mr-2 mt-1" />
               <span className="text-gray-900">
-                {order.shippingAddress || "Not provided"}
+                <AddressDisplay order={order} type="shipping" />
+              </span>
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-500 mb-1">
+              Billing Address
+            </label>
+            <div className="flex items-start">
+              <FaMapMarkerAlt className="text-gray-400 mr-2 mt-1" />
+              <span className="text-gray-900">
+                <AddressDisplay order={order} type="billing" />
               </span>
             </div>
           </div>
@@ -374,11 +387,11 @@ function ProductOrderEditModal({ order, onClose, onSave, saving }) {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
           <Button
             onClick={() => onSave({ ...order, ...form })}
             disabled={saving}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
           >
             {saving ? (
               <>
@@ -391,7 +404,7 @@ function ProductOrderEditModal({ order, onClose, onSave, saving }) {
               </>
             )}
           </Button>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
             Cancel
           </Button>
         </div>
@@ -446,7 +459,18 @@ function CustomOrderViewModal({ order, onClose }) {
             <div className="flex items-start">
               <FaMapMarkerAlt className="text-gray-400 mr-2 mt-1" />
               <span className="text-gray-900">
-                {order.shippingAddress || "Not provided"}
+                <AddressDisplay order={order} type="shipping" />
+              </span>
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-500 mb-1">
+              Billing Address
+            </label>
+            <div className="flex items-start">
+              <FaMapMarkerAlt className="text-gray-400 mr-2 mt-1" />
+              <span className="text-gray-900">
+                <AddressDisplay order={order} type="billing" />
               </span>
             </div>
           </div>
@@ -525,10 +549,11 @@ function CustomOrderViewModal({ order, onClose }) {
                   <div>
                     <span className="text-gray-500">Item Total:</span>
                     <p className="font-bold text-blue-600">
-                      $
+                      Tk.
                       {(
-                        Number(item.verifiedQuantity || 0) *
-                        Number(item.verifiedPrice || 0)
+                        item.itemTotal ??
+                        (Number(item.verifiedQuantity || 0) *
+                          Number(item.verifiedPrice || 0))
                       ).toFixed(2)}
                     </p>
                   </div>
@@ -642,7 +667,7 @@ function CustomOrderEditModal({ order, onClose, onSave, saving }) {
           {/* Shipping Cost */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Shipping Cost ($)
+              Shipping Cost (Tk.)
             </label>
             <input
               type="number"
@@ -706,110 +731,149 @@ function CustomOrderEditModal({ order, onClose, onSave, saving }) {
             Edit Items ({items?.length || 0})
           </h5>
           <div className="space-y-4">
-            {items?.map((item) => (
-              <div
-                key={item.id}
-                className="border border-gray-200 rounded-lg p-4 bg-gray-50"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                  <h6 className="font-semibold text-gray-900">
-                    {item.customItemName}
-                  </h6>
-                  <span className="text-sm text-gray-500">
-                    Requested: {item.requestedQuantity} {item.unit || "units"}
-                  </span>
-                </div>
+            {items?.map((item) => {
+              const productStock = item.product?.stock;
+              const isInsufficientStock =
+                productStock !== undefined &&
+                productStock !== null &&
+                item.requestedQuantity > productStock;
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Verified Quantity */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Verified Quantity
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.verifiedQuantity ?? ""}
-                      onChange={(e) =>
-                        updateItem(item.id, "verifiedQuantity", e.target.value)
-                      }
-                      placeholder="0.00"
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
+              return (
+                <div
+                  key={item.id}
+                  className={`border rounded-lg p-4 ${
+                    isInsufficientStock
+                      ? "border-red-300 bg-red-50"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                >
+                  {isInsufficientStock && (
+                    <div className="mb-3 px-3 py-2 bg-red-100 border border-red-200 rounded-md">
+                      <p className="text-xs font-medium text-red-700">
+                        Insufficient stock: requested {item.requestedQuantity}{" "}
+                        {item.unit || "units"} but only {productStock} available
+                      </p>
+                    </div>
+                  )}
 
-                  {/* Verified Price */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Price per Unit ($)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.verifiedPrice ?? ""}
-                      onChange={(e) =>
-                        updateItem(item.id, "verifiedPrice", e.target.value)
-                      }
-                      placeholder="0.00"
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  {/* Item Status */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Item Status
-                    </label>
-                    <select
-                      value={item.status || "AVAILABLE"}
-                      onChange={(e) =>
-                        updateItem(item.id, "status", e.target.value)
-                      }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="AVAILABLE">Available</option>
-                      <option value="UNAVAILABLE">Unavailable</option>
-                      <option value="ADJUSTED">Adjusted</option>
-                    </select>
-                  </div>
-
-                  {/* Item Total (read-only) */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Item Total
-                    </label>
-                    <span className="text-lg font-bold text-blue-600">
-                      $
-                      {(
-                        Number(item.verifiedQuantity || 0) *
-                        Number(item.verifiedPrice || 0)
-                      ).toFixed(2)}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                    <h6 className="font-semibold text-gray-900">
+                      {item.customItemName}
+                    </h6>
+                    <span className="text-sm text-gray-500">
+                      Requested: {item.requestedQuantity} {item.unit || "units"}
                     </span>
                   </div>
-                </div>
 
-                {/* Seller Notes */}
-                <div className="mt-3">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Seller Notes
-                  </label>
-                  <input
-                    type="text"
-                    value={item.sellerNotes || ""}
-                    onChange={(e) =>
-                      updateItem(item.id, "sellerNotes", e.target.value)
-                    }
-                    placeholder="Add notes for this item..."
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Verified Quantity */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Verified Quantity
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.verifiedQuantity ?? ""}
+                        onChange={(e) =>
+                          updateItem(item.id, "verifiedQuantity", e.target.value)
+                        }
+                        placeholder="0.00"
+                        className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:border-blue-500 ${
+                          isInsufficientStock
+                            ? "border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                        }`}
+                      />
+                    </div>
+
+                    {/* Verified Price */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Price per Unit (Tk.)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.verifiedPrice ?? ""}
+                        onChange={(e) =>
+                          updateItem(item.id, "verifiedPrice", e.target.value)
+                        }
+                        placeholder="0.00"
+                        className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:border-blue-500 ${
+                          isInsufficientStock
+                            ? "border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                        }`}
+                      />
+                    </div>
+
+                    {/* Item Status */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Item Status
+                      </label>
+                      <select
+                        value={item.status || "AVAILABLE"}
+                        onChange={(e) =>
+                          updateItem(item.id, "status", e.target.value)
+                        }
+                        className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:border-blue-500 ${
+                          isInsufficientStock
+                            ? "border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                        }`}
+                      >
+                        <option value="AVAILABLE">Available</option>
+                        <option value="UNAVAILABLE">Unavailable</option>
+                        <option value="ADJUSTED">Adjusted</option>
+                      </select>
+                    </div>
+
+                     {/* Item Total (read-only) */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                          Item Total
+                        </label>
+                        <span className={`text-lg font-bold ${
+                          isInsufficientStock ? "text-red-600" : "text-blue-600"
+                        }`}>
+                          Tk.
+                          {(
+                            Number(item.verifiedQuantity || 0) *
+                            Number(item.verifiedPrice || 0)
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+                  </div>
+
+                  {/* Seller Notes */}
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Seller Notes
+                    </label>
+                    <input
+                      type="text"
+                      value={item.sellerNotes || ""}
+                      onChange={(e) =>
+                        updateItem(item.id, "sellerNotes", e.target.value)
+                      }
+                      placeholder="Add notes for this item..."
+                      className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:border-blue-500 ${
+                        isInsufficientStock
+                          ? "border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500"
+                          : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                      }`}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
           <Button
             onClick={() =>
               onSave({
@@ -819,7 +883,7 @@ function CustomOrderEditModal({ order, onClose, onSave, saving }) {
               })
             }
             disabled={saving}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
           >
             {saving ? (
               <>
@@ -832,7 +896,7 @@ function CustomOrderEditModal({ order, onClose, onSave, saving }) {
               </>
             )}
           </Button>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
             Cancel
           </Button>
         </div>
@@ -852,6 +916,15 @@ export default function SellerOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Filter state
+  const [filters, setFilters] = useState({
+    division: "",
+    district: "",
+    search: "",
+  });
+  const [divisions, setDivisions] = useState([]);
+  const [districts, setDistricts] = useState([]);
+
   // Modal state
   const [viewingProductOrder, setViewingProductOrder] = useState(null);
   const [editingProductOrder, setEditingProductOrder] = useState(null);
@@ -866,24 +939,69 @@ export default function SellerOrdersPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      // Fetch only regular (product) orders for the Product Orders tab
-      const productData = await orderService.getRegularOrders({
+      const filterParams = {
         type: "seller",
-      });
+        division: filters.division || undefined,
+        district: filters.district || undefined,
+        search: filters.search || undefined,
+      };
+      // Fetch only regular (product) orders for the Product Orders tab
+      const productData = await orderService.getRegularOrders(filterParams);
       setProductOrders(Array.isArray(productData) ? productData : []);
       // Fetch only custom orders for the Custom Orders tab
-      const customData = await orderService.getCustomOrders({ type: "seller" });
+      const customData = await orderService.getCustomOrders(filterParams);
       setCustomOrders(Array.isArray(customData) ? customData : []);
     } catch (err) {
       setError(err.message || "Failed to fetch orders");
     } finally {
       setLoading(false);
     }
+  }, [filters]);
+
+  useEffect(() => {
+    const loadDivisions = async () => {
+      try {
+        const data = await locationService.getDivisions();
+        setDivisions(data.divisions || []);
+      } catch (error) {
+        console.error("Error fetching divisions:", error);
+      }
+    };
+    loadDivisions();
   }, []);
+
+  useEffect(() => {
+    const loadDistricts = async () => {
+      if (!filters.division) {
+        setDistricts([]);
+        return;
+      }
+      try {
+        const data = await locationService.getDistricts(filters.division);
+        setDistricts(data.districts || []);
+      } catch (error) {
+        console.error("Error fetching districts:", error);
+      }
+    };
+    loadDistricts();
+  }, [filters.division]);
+
+  const handleFilterChange = (key, value) => {
+    setFilters((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "division") next.district = "";
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // Refetch whenever filters change
+  useEffect(() => {
+    fetchOrders();
+  }, [filters]);
 
   /* ── Product order actions ─────────────────────────────────────────── */
 
@@ -958,6 +1076,7 @@ export default function SellerOrdersPage() {
           order.id,
           updatedItems,
           shippingCost,
+          order.status,
         );
       }
 
@@ -988,14 +1107,24 @@ export default function SellerOrdersPage() {
     }
   };
 
+  const handleEditCustomOrder = async (order) => {
+    try {
+      const fullOrder = await orderService.getCustomOrder(order.id);
+      setEditingCustomOrder(fullOrder || order);
+    } catch (err) {
+      console.error("Failed to fetch custom order details:", err);
+      setEditingCustomOrder(order);
+    }
+  };
+
   /* ── Render: loading / error ───────────────────────────────────────── */
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading orders...</p>
+        <div className="text-center p-4">
+          <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-600">Loading orders...</p>
         </div>
       </div>
     );
@@ -1004,9 +1133,9 @@ export default function SellerOrdersPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={fetchOrders}>Retry</Button>
+        <div className="text-center p-4">
+          <p className="text-red-600 mb-3 sm:mb-4 text-sm sm:text-base">{error}</p>
+          <Button onClick={fetchOrders} className="w-full sm:w-auto">Retry</Button>
         </div>
       </div>
     );
@@ -1014,18 +1143,18 @@ export default function SellerOrdersPage() {
 
   /* ── Render: main page ─────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-6 sm:py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Order Management</h1>
-          <p className="mt-1 text-gray-600">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Order Management</h1>
+          <p className="mt-1 text-sm sm:text-base text-gray-600">
             View and manage all your product and custom orders
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-6 w-fit">
+        <div className="flex flex-col xs:flex-row gap-2 sm:gap-1 bg-white p-1.5 sm:p-1 rounded-xl shadow-sm border border-gray-200 mb-4 sm:mb-6">
           <button
             onClick={() => {
               setActiveTab("orders");
@@ -1034,13 +1163,13 @@ export default function SellerOrdersPage() {
               setViewingCustomOrder(null);
               setEditingCustomOrder(null);
             }}
-            className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+            className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
               activeTab === "orders"
                 ? "bg-blue-600 text-white shadow-md"
                 : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             }`}
           >
-            <FaBox className="inline mr-2" />
+            <FaBox className="inline mr-1 sm:mr-2" />
             Regular Orders ({productOrders.length})
           </button>
           <button
@@ -1051,26 +1180,92 @@ export default function SellerOrdersPage() {
               setViewingCustomOrder(null);
               setEditingCustomOrder(null);
             }}
-            className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+            className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
               activeTab === "custom"
                 ? "bg-blue-600 text-white shadow-md"
                 : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             }`}
           >
-            <FaClipboardList className="inline mr-2" />
+            <FaClipboardList className="inline mr-1 sm:mr-2" />
             Custom Orders ({customOrders.length})
           </button>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 mb-4 sm:mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Search
+              </label>
+              <Input
+                type="text"
+                value={filters.search}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+                placeholder="Order #, buyer, address..."
+                icon={<FaMapMarkerAlt />}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Division
+              </label>
+              <select
+                value={filters.division}
+                onChange={(e) => handleFilterChange("division", e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                <option value="">All Divisions</option>
+                {divisions.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                District / City
+              </label>
+              <select
+                value={filters.district}
+                onChange={(e) => handleFilterChange("district", e.target.value)}
+                disabled={!filters.division}
+                className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-70"
+              >
+                <option value="">
+                  {filters.division ? "All Districts" : "Select Division first"}
+                </option>
+                {districts.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFilters({ division: "", district: "", search: "" });
+                }}
+                className="w-full"
+              >
+                <FaTimes className="mr-1" /> Clear Filters
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════════════ */}
         {/*  ORDERS TAB (Normal/Product Orders)                           */}
         {/* ══════════════════════════════════════════════════════════════ */}
         {activeTab === "orders" && (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {productOrders.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                <FaBox className="mx-auto text-4xl text-gray-300 mb-4" />
-                <p className="text-gray-500">No orders found.</p>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 text-center">
+                <FaBox className="mx-auto text-3xl sm:text-4xl text-gray-300 mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base text-gray-500">No orders found.</p>
               </div>
             ) : (
               productOrders.map((order) => (
@@ -1079,24 +1274,25 @@ export default function SellerOrdersPage() {
                   className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
                 >
                   {/* Order header bar */}
-                  <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <h3 className="text-lg font-semibold text-gray-900">
+                  <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                         #{order.orderNumber}
                       </h3>
                       <StatusBadge status={order.status} />
-                      <span className="text-sm text-gray-500">
+                      <span className="text-xs sm:text-sm text-gray-500">
                         {new Date(order.createdAt).toLocaleDateString()}
                       </span>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-xs sm:text-sm text-gray-500">
                         Buyer: {order.user?.name || order.buyer?.name || "N/A"}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setViewingProductOrder(order)}
+                        className="w-full xs:w-auto"
                       >
                         <FaEye className="mr-1" /> View
                       </Button>
@@ -1104,6 +1300,7 @@ export default function SellerOrdersPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => setEditingProductOrder(order)}
+                        className="w-full xs:w-auto"
                       >
                         <FaEdit className="mr-1" /> Edit
                       </Button>
@@ -1112,6 +1309,7 @@ export default function SellerOrdersPage() {
                         size="sm"
                         onClick={() => handleDeleteProductOrder(order.id)}
                         disabled={deletingOrder === order.id}
+                        className="w-full xs:w-auto"
                       >
                         <FaTrash className="mr-1" />{" "}
                         {deletingOrder === order.id ? "..." : "Delete"}
@@ -1120,19 +1318,19 @@ export default function SellerOrdersPage() {
                   </div>
 
                   {/* Collapsed summary row */}
-                  <div className="p-6">
+                  <div className="p-3 sm:p-6">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                       <div className="flex-1">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600">
                           Items:{" "}
                           <span className="font-medium text-gray-900">
                             {order.items?.length || 0}
                           </span>
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Total</p>
-                        <p className="text-xl font-bold text-green-600">
+                      <div className="text-left sm:text-right">
+                        <p className="text-xs sm:text-sm text-gray-600">Total</p>
+                        <p className="text-lg sm:text-xl font-bold text-green-600">
                           ${order.total?.toFixed(2)}
                         </p>
                       </div>
@@ -1148,11 +1346,11 @@ export default function SellerOrdersPage() {
         {/*  CUSTOM ORDERS TAB                                            */}
         {/* ══════════════════════════════════════════════════════════════ */}
         {activeTab === "custom" && (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {customOrders.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                <FaClipboardList className="mx-auto text-4xl text-gray-300 mb-4" />
-                <p className="text-gray-500">No custom orders found.</p>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 text-center">
+                <FaClipboardList className="mx-auto text-3xl sm:text-4xl text-gray-300 mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base text-gray-500">No custom orders found.</p>
               </div>
             ) : (
               customOrders.map((order) => (
@@ -1161,32 +1359,34 @@ export default function SellerOrdersPage() {
                   className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
                 >
                   {/* Order header bar */}
-                  <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <h3 className="text-lg font-semibold text-gray-900">
+                  <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                         #{order.orderNumber}
                       </h3>
                       <StatusBadge status={order.status} />
-                      <span className="text-sm text-gray-500">
+                      <span className="text-xs sm:text-sm text-gray-500">
                         {new Date(order.createdAt).toLocaleDateString()}
                       </span>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-xs sm:text-sm text-gray-500">
                         Buyer:{" "}
                         {order.buyer?.name || order.buyer?.email || "N/A"}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setViewingCustomOrder(order)}
+                        className="w-full xs:w-auto"
                       >
                         <FaEye className="mr-1" /> View
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setEditingCustomOrder(order)}
+                        onClick={() => handleEditCustomOrder(order)}
+                        className="w-full xs:w-auto"
                       >
                         <FaEdit className="mr-1" /> Edit All Details
                       </Button>
@@ -1195,6 +1395,7 @@ export default function SellerOrdersPage() {
                         size="sm"
                         onClick={() => handleDeleteCustomOrder(order.id)}
                         disabled={deletingOrder === order.id}
+                        className="w-full xs:w-auto"
                       >
                         <FaTrash className="mr-1" />{" "}
                         {deletingOrder === order.id ? "..." : "Delete"}
@@ -1203,19 +1404,19 @@ export default function SellerOrdersPage() {
                   </div>
 
                   {/* Collapsed summary row */}
-                  <div className="p-6">
+                  <div className="p-3 sm:p-6">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                       <div className="flex-1">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600">
                           Items:{" "}
                           <span className="font-medium text-gray-900">
                             {order.items?.length || 0}
                           </span>
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Total</p>
-                        <p className="text-xl font-bold text-green-600">
+                      <div className="text-left sm:text-right">
+                        <p className="text-xs sm:text-sm text-gray-600">Total</p>
+                        <p className="text-lg sm:text-xl font-bold text-green-600">
                           ${order.total?.toFixed(2)}
                         </p>
                       </div>

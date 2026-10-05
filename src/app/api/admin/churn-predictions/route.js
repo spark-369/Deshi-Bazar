@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyToken, extractToken } from "@/lib/auth";
+import { ensureChurnPredictionsExist } from "@/lib/churnService";
 
 // GET /api/admin/churn-predictions - Get churn predictions with filtering
 export async function GET(request) {
@@ -29,11 +30,39 @@ export async function GET(request) {
     const riskLevel = searchParams.get("riskLevel");
     const minScore = parseFloat(searchParams.get("minScore"));
     const maxScore = parseFloat(searchParams.get("maxScore"));
-    const userId = searchParams.get("userId");
+    const email = searchParams.get("email");
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 20;
-    const sortBy = searchParams.get("sortBy") || "churnScore";
+    const sortByParam = searchParams.get("sortBy") || "churnScore";
     const sortOrder = searchParams.get("sortOrder") || "desc";
+
+    // Whitelist allowed sort fields to avoid passing arbitrary keys to
+    // Prisma's `orderBy` (which would throw a validation error).
+    const allowedSortFields = ["churnScore", "predictedAt", "riskLevel"];
+    const sortBy = allowedSortFields.includes(sortByParam)
+      ? sortByParam
+      : "churnScore";
+    const order = sortOrder === "asc" ? "asc" : "desc";
+
+    // Ensure predictions exist for all eligible buyers so the page works even
+    // if the admin has never visited /admin/users (which previously populated
+    // the table lazily). This is what makes the page work standalone.
+    try {
+      await ensureChurnPredictionsExist();
+    } catch (e) {
+      console.error("Churn prediction generation failed:", e);
+      // Continue with whatever predictions are already persisted.
+    }
+
+    // Resolve email to userId if provided
+    let userId = null;
+    if (email) {
+      const matchedUser = await prisma.user.findFirst({
+        where: { email: { contains: email, mode: "insensitive" } },
+        select: { id: true },
+      });
+      userId = matchedUser?.id || "__no_match__";
+    }
 
     // Build where clause
     const where = {};
@@ -53,7 +82,7 @@ export async function GET(request) {
     const predictions = await prisma.churnPrediction.findMany({
       where,
       orderBy: {
-        [sortBy]: sortOrder,
+        [sortBy]: order,
       },
       skip: (page - 1) * limit,
       take: limit,

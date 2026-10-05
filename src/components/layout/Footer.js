@@ -6,51 +6,51 @@ import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaEnvelope, FaPhone, Fa
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div>
-            <h3 className="text-white text-lg font-bold mb-4">AI Shop</h3>
-            <p className="text-sm text-gray-400 mb-4">
+            <h3 className="text-white text-xl sm:text-2xl font-bold mb-3 sm:mb-4">AI Shop</h3>
+            <p className="text-xs sm:text-sm text-gray-400 mb-4">
               Your smart marketplace with AI-powered bargaining, personalized recommendations, and seamless shopping experience.
             </p>
-            <div className="flex gap-4">
-              <a href="#" className="text-gray-400 hover:text-blue-500 transition-colors">
-                <FaFacebook size={20} />
+            <div className="flex gap-3 sm:gap-4">
+              <a href="#" className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-500 transition-colors">
+                <FaFacebook size={18} />
               </a>
-              <a href="#" className="text-gray-400 hover:text-blue-400 transition-colors">
-                <FaTwitter size={20} />
+              <a href="#" className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-400 transition-colors">
+                <FaTwitter size={18} />
               </a>
-              <a href="#" className="text-gray-400 hover:text-pink-500 transition-colors">
-                <FaInstagram size={20} />
+              <a href="#" className="p-1.5 sm:p-2 text-gray-400 hover:text-pink-500 transition-colors">
+                <FaInstagram size={18} />
               </a>
-              <a href="#" className="text-gray-400 hover:text-blue-600 transition-colors">
-                <FaLinkedin size={20} />
+              <a href="#" className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 transition-colors">
+                <FaLinkedin size={18} />
               </a>
             </div>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Quick Links</h4>
-            <ul className="space-y-2">
+            <h4 className="text-white font-semibold mb-3 sm:mb-4 text-base sm:text-lg">Quick Links</h4>
+            <ul className="space-y-1.5 sm:space-y-2">
               <li>
-                <Link href="/products" className="text-sm hover:text-white transition-colors">
+                <Link href="/products" className="text-xs sm:text-sm hover:text-white transition-colors inline-block py-0.5">
                   All Products
                 </Link>
               </li>
               <li>
-                <Link href="/categories" className="text-sm hover:text-white transition-colors">
+                <Link href="/categories" className="text-xs sm:text-sm hover:text-white transition-colors inline-block py-0.5">
                   Categories
                 </Link>
               </li>
               <li>
-                <Link href="/deals" className="text-sm hover:text-white transition-colors">
+                <Link href="/deals" className="text-xs sm:text-sm hover:text-white transition-colors inline-block py-0.5">
                   Special Deals
                 </Link>
               </li>
               <li>
-                <Link href="/about" className="text-sm hover:text-white transition-colors">
+                <Link href="/about" className="text-xs sm:text-sm hover:text-white transition-colors inline-block py-0.5">
                   About Us
                 </Link>
               </li>
@@ -59,25 +59,25 @@ export default function Footer() {
 
           {/* Customer Service */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Customer Service</h4>
-            <ul className="space-y-2">
+            <h4 className="text-white font-semibold mb-3 sm:mb-4 text-base sm:text-lg">Customer Service</h4>
+            <ul className="space-y-1.5 sm:space-y-2">
               <li>
-                <Link href="/help" className="text-sm hover:text-white transition-colors">
+                <Link href="/help" className="text-xs sm:text-sm hover:text-white transition-colors inline-block py-0.5">
                   Help Center
                 </Link>
               </li>
               <li>
-                <Link href="/returns" className="text-sm hover:text-white transition-colors">
+                <Link href="/returns" className="text-xs sm:text-sm hover:text-white transition-colors inline-block py-0.5">
                   Returns & Refunds
                 </Link>
               </li>
               <li>
-                <Link href="/shipping" className="text-sm hover:text-white transition-colors">
+                <Link href="/shipping" className="text-xs sm:text-sm hover:text-white transition-colors inline-block py-0.5">
                   Shipping Info
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="text-sm hover:text-white transition-colors">
+                <Link href="/contact" className="text-xs sm:text-sm hover:text-white transition-colors inline-block py-0.5">
                   Contact Us
                 </Link>
               </li>
@@ -86,33 +86,33 @@ export default function Footer() {
 
           {/* Contact Info */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Contact</h4>
-            <ul className="space-y-3">
-              <li className="flex items-center gap-2 text-sm">
-                <FaEnvelope className="text-blue-500" />
-                <span>support@aishop.com</span>
+            <h4 className="text-white font-semibold mb-3 sm:mb-4 text-base sm:text-lg">Contact</h4>
+            <ul className="space-y-2 sm:space-y-3">
+              <li className="flex items-center gap-2 text-xs sm:text-sm">
+                <FaEnvelope className="text-blue-500 flex-shrink-0" size={14} />
+                <span className="break-all">support@aishop.com</span>
               </li>
-              <li className="flex items-center gap-2 text-sm">
-                <FaPhone className="text-blue-500" />
+              <li className="flex items-center gap-2 text-xs sm:text-sm">
+                <FaPhone className="text-blue-500 flex-shrink-0" size={14} />
                 <span>+1 (555) 123-4567</span>
               </li>
-              <li className="flex items-center gap-2 text-sm">
-                <FaMapMarkerAlt className="text-blue-500" />
+              <li className="flex items-center gap-2 text-xs sm:text-sm">
+                <FaMapMarkerAlt className="text-blue-500 flex-shrink-0" size={14} />
                 <span>123 AI Street, Tech City</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-sm text-gray-400">
-            © {new Date().getFullYear()} AI Shop. All rights reserved.
+        <div className="border-t border-gray-800 mt-6 pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
+            © {new Date().getFullYear()} Powered By Shyhoon
           </p>
-          <div className="flex gap-4 mt-4 md:mt-0">
-            <Link href="/privacy" className="text-sm text-gray-400 hover:text-white">
+          <div className="flex gap-4 sm:gap-6">
+            <Link href="/privacy" className="text-xs sm:text-sm text-gray-400 hover:text-white">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="text-sm text-gray-400 hover:text-white">
+            <Link href="/terms" className="text-xs sm:text-sm text-gray-400 hover:text-white">
               Terms of Service
             </Link>
           </div>

@@ -87,8 +87,8 @@ export async function GET(request) {
     let discount = 0;
 
     const itemsWithTotals = cart.items.map((item) => {
-      const itemTotal = item.finalPrice * item.quantity;
-      totalPrice += itemTotal;
+      const itemTotal = item.quantity;
+      totalPrice += item.finalPrice;
 
       if (item.offerPrice && item.offerPrice < item.originalPrice) {
         discount += (item.originalPrice - item.offerPrice) * item.quantity;
@@ -258,15 +258,22 @@ export async function POST(request) {
       });
     }
 
-    // Update user browsing history
-    await prisma.userProfile.update({
+    // Update user browsing history (append without duplicates)
+    const currentProfile = await prisma.userProfile.findUnique({
       where: { userId: user.id },
-      data: {
-        browsingHistory: {
-          push: productId,
-        },
-      },
+      select: { browsingHistory: true },
     });
+    const currentHistory = Array.isArray(currentProfile?.browsingHistory)
+      ? currentProfile.browsingHistory
+      : [];
+    if (!currentHistory.includes(productId)) {
+      await prisma.userProfile.update({
+        where: { userId: user.id },
+        data: {
+          browsingHistory: [...currentHistory, productId],
+        },
+      });
+    }
 
     return NextResponse.json(
       { message: "Item added to cart" },

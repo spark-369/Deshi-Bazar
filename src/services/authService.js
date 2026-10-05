@@ -19,6 +19,19 @@ export const authService = {
     return data;
   },
 
+  async verify2FA(tempToken, code) {
+    const data = await api.post("/api/auth/2fa/verify", { code }, {
+      headers: {
+        Authorization: `Bearer ${tempToken}`,
+      },
+    });
+    if (data.token) {
+      setAuthToken(data.token);
+      setUser(data.user);
+    }
+    return data;
+  },
+
   logout() {
     clearAuth();
   },
@@ -42,6 +55,29 @@ export const authService = {
       ...data,
     });
     return result;
+  },
+
+  async forgotPassword(email) {
+    return api.post("/api/auth/forgot-password", { email });
+  },
+
+  async resetPassword(token, password) {
+    return api.post("/api/auth/reset-password", { token, password });
+  },
+
+  async enable2FA() {
+    const data = await api.post("/api/users/2fa");
+    return data;
+  },
+
+  async verify2FACode(code) {
+    const data = await api.post("/api/users/2fa/verify", { code });
+    return data;
+  },
+
+  async disable2FA() {
+    const data = await api.delete("/api/users/2fa");
+    return data;
   },
 };
 
