@@ -351,7 +351,7 @@ export default function FullAnalyticsContent() {
           </Card>
         </div>
 
-        {/* Order Status and AI Forecast */}
+        {/* Order Status and Forecast */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
           {/* Order Status Breakdown */}
           <Card>
@@ -396,11 +396,11 @@ export default function FullAnalyticsContent() {
             </div>
           </Card>
 
-          {/* AI Insights */}
+          {/* Insights */}
           <Card>
             <div className="p-4 sm:p-5 lg:p-6">
               <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-3 sm:mb-4">
-                AI Insights
+                Insights
               </h2>
               <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                 <div className="p-3 sm:p-4 bg-blue-50 rounded-lg">

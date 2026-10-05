@@ -73,10 +73,10 @@ export default function AdminRecommendationsPage() {
 
   const handleGenerateAI = async () => {
     if (!emailFilter) {
-      alert('Please enter a user email for AI recommendations');
+      alert('Please enter a user email to generate recommendations');
       return;
     }
-    if (!confirm(`Generate AI recommendations for ${emailFilter}?`)) return;
+    if (!confirm(`Generate recommendations for ${emailFilter}?`)) return;
 
     try {
       const result = await recommendationService.generateAIRecommendations(emailFilter);
@@ -243,7 +243,7 @@ export default function AdminRecommendationsPage() {
               Recommendation Management
             </h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">
-              AI-powered product recommendations
+              Product recommendations
             </p>
           </div>
           <div className="flex flex-col xs:flex-row gap-2 w-full">

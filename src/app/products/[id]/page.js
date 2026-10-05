@@ -322,7 +322,7 @@ export default function ProductDetailPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500 mt-1.5">
-                    AI will suggest if your offer is likely to be accepted
+                    We'll suggest if your offer is likely to be accepted
                   </p>
                 </div>
               )}
@@ -585,7 +585,7 @@ export default function ProductDetailPage() {
                       {review.aiAnalysis && (
                         <div className="mt-3 pt-3 border-t border-gray-100">
                           <p className="text-xs text-gray-500">
-                            <span className="font-medium">AI Analysis:</span>{" "}
+                            <span className="font-medium">Analysis:</span>{" "}
                             Sentiment:{" "}
                             <span className="font-medium">
                               {review.aiAnalysis.sentiment || "N/A"}

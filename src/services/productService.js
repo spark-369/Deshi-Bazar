@@ -47,7 +47,7 @@ export const productService = {
     return data;
   },
 
-  // Get AI search suggestions
+  // Get search suggestions
   async getSearchSuggestions(query) {
     const data = await api.get("/api/search", {
       params: { q: query, suggestions: true },

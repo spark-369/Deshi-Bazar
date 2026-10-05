@@ -7,8 +7,8 @@ import Footer from "@/components/layout/Footer";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "AI Shop - Smart E-Commerce Marketplace",
-  description: "AI-powered e-commerce marketplace with smart bargaining, personalized recommendations, and intelligent shopping experience",
+  title: "Deshi Bazar - Bangladeshi E-Commerce Marketplace",
+  description: "Bangladeshi e-commerce marketplace with smart bargaining, personal recommendations, and a seamless shopping experience",
 };
 
 export default function RootLayout({ children }) {

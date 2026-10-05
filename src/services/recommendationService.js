@@ -7,7 +7,7 @@ const recommendationService = {
     return data;
   },
 
-  // Generate AI recommendations for a user (admin only)
+  // Generate recommendations for a user (admin only)
   async generateAIRecommendations(email) {
     const result = await api.post("/api/recommendations", {
       generateAI: true,

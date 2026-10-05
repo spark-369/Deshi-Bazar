@@ -10,9 +10,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div>
-            <h3 className="text-white text-xl sm:text-2xl font-bold mb-3 sm:mb-4">AI Shop</h3>
+            <h3 className="text-white text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Deshi Bazar</h3>
             <p className="text-xs sm:text-sm text-gray-400 mb-4">
-              Your smart marketplace with AI-powered bargaining, personalized recommendations, and seamless shopping experience.
+              Your smart marketplace with bargaining, personal recommendations, and a seamless shopping experience.
             </p>
             <div className="flex gap-3 sm:gap-4">
               <a href="#" className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-500 transition-colors">
@@ -98,7 +98,7 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-2 text-xs sm:text-sm">
                 <FaMapMarkerAlt className="text-blue-500 flex-shrink-0" size={14} />
-                <span>123 AI Street, Tech City</span>
+                <span>123 Gulshan Avenue, Dhaka, Bangladesh</span>
               </li>
             </ul>
           </div>

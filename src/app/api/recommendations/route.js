@@ -119,7 +119,7 @@ export async function GET(request) {
   }
 }
 
-// POST /api/recommendations - Create recommendations (AI/Admin only)
+// POST /api/recommendations - Create recommendations (Admin only)
 export async function POST(request) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -144,7 +144,7 @@ export async function POST(request) {
     const { generateAI, userId, email, productId, recommendedProductId, score, reason } = body;
 
     if (generateAI) {
-      // AI-generated recommendations for a user
+      // Generate recommendations for a user
       let targetUserId = userId;
       if (!targetUserId && email) {
         const matchedUser = await prisma.user.findFirst({
@@ -155,7 +155,7 @@ export async function POST(request) {
       }
       if (!targetUserId) {
         return NextResponse.json(
-          { error: "userId or email is required for AI generation" },
+          { error: "userId or email is required to generate recommendations" },
           { status: 400 },
         );
       }
@@ -275,7 +275,7 @@ export async function POST(request) {
       }
 
       return NextResponse.json({
-        message: "AI recommendations generated",
+        message: "Recommendations generated",
         count: recommendationData.length,
       }, { status: 201 });
     } else {

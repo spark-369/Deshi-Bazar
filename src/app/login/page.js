@@ -131,7 +131,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <Link href="/" className="text-3xl font-bold text-blue-600">
-            AI Shop
+            Deshi Bazar
           </Link>
           <h2 className="mt-4 text-2xl font-bold text-gray-900">
             {requires2FA ? "Two-Factor Authentication" : "Welcome Back"}

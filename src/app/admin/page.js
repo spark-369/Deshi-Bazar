@@ -79,7 +79,7 @@ export default function AdminDashboard() {
             Admin Dashboard
           </h1>
           <p className="text-sm sm:text-base text-gray-600 mt-1">
-            Manage your platform with AI-powered insights
+            Manage your platform with smart insights
           </p>
         </div>
 
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* AI Insights */}
+        {/* Insights */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card>
             <CardHeader>
@@ -333,7 +333,7 @@ export default function AdminDashboard() {
                 onClick={() => router.push("/admin/recommendations")}
               >
                 <FaRobot className="text-lg sm:text-2xl mb-1 sm:mb-2" />
-                <span className="text-xs sm:text-sm">AI Recs</span>
+                <span className="text-xs sm:text-sm">Recs</span>
               </Button>
             </div>
           </CardContent>

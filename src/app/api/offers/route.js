@@ -149,7 +149,7 @@ export async function POST(request) {
       );
     }
 
-    // Get AI suggestion for the offer
+    // Get price suggestion for the offer
     const aiSuggestion = await suggestNegotiationPrice(
       product.price,
       initialOffer,

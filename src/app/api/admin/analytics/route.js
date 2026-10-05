@@ -147,14 +147,14 @@ export async function GET(request) {
       count: cat._count,
     }));
 
-    // Prepare historical data for AI forecasting
+    // Prepare historical data for forecasting
     const historicalData = Object.entries(dailySales).map(([date, data]) => ({
       date,
       revenue: data.revenue,
       orders: data.orders,
     }));
 
-    // Get AI sales forecast
+    // Get sales forecast
     const salesForecast = await forecastSales(historicalData);
 
     // Get trending products

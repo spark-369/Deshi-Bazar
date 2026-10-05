@@ -1,13 +1,12 @@
-// AI Utilities
+// Business Logic Utilities
 // Note: These functions are designed for server-side use.
 //
-// This module intentionally has NO heavy ML dependencies (no ONNX runtime /
-// Transformers.js) so the app deploys smoothly on serverless platforms such
-// as Vercel's free tier. Text understanding is implemented with lightweight,
-// deterministic heuristics: hashed bag-of-words embeddings for semantic-ish
-// similarity and a lexicon-based sentiment classifier. Every function keeps
-// the exact same public signature/return shape as the previous
-// Transformers.js implementation, so callers do not need to change.
+// This module has NO ML dependencies and no external AI runtime. All text
+// understanding and scoring is implemented with lightweight, deterministic
+// heuristics: hashed bag-of-words embeddings for similarity, a lexicon-based
+// sentiment classifier, and rule-based scoring for negotiation, fraud, churn,
+// forecasting, and recommendations. Every function keeps a simple, stable public
+// signature/return shape so callers remain decoupled from the underlying logic.
 
 const EMBEDDING_DIM = 256;
 
@@ -154,10 +153,9 @@ export async function detectFakeReview(reviewText, reviewMetadata = {}) {
 }
 
 /**
- * Generate text embeddings for semantic search.
+ * Generate text embeddings for similarity-based search.
  *
- * Lightweight, dependency-free replacement for the previous
- * sentence-transformers model: a feature-hashed bag-of-words vector.
+ * A lightweight, dependency-free feature-hashed bag-of-words vector.
  * Vectors are L2-normalized so the existing cosine-similarity (dot product)
  * call sites keep working unchanged. Returns null on failure so callers fall
  * back to substring matching, exactly as before.
@@ -198,7 +196,7 @@ export async function generateEmbedding(text) {
 }
 
 /**
- * Get AI-powered search suggestions/autocomplete
+ * Get search suggestions/autocomplete
  * @param {string} query - User search query
  * @param {Array} productNames - List of product names for matching
  * @returns {Array} Suggested queries
@@ -694,9 +692,8 @@ export async function predictChurn(userData = {}) {
 /**
  * Match product name to categories.
  *
- * Lightweight, dependency-free replacement for the previous zero-shot
- * classification model: token-overlap scoring between the product name and
- * each category name (plus a keyword synonym map for common categories).
+ * Lightweight, dependency-free token-overlap scoring between the product name
+ * and each category name (plus a keyword synonym map for common categories).
  * Returns the same shape as before: sorted matches and a topMatch.
  * @param {string} productName - Product name to classify
  * @param {Array} categories - List of category names to match against

@@ -202,7 +202,7 @@ export default function OffersPage() {
                     )}
                     {offer.aiSuggestedPrice && (
                       <p className="text-xs text-gray-500">
-                         AI Suggested: Tk.{offer.aiSuggestedPrice?.toFixed(2)}
+                         Suggested: Tk.{offer.aiSuggestedPrice?.toFixed(2)}
                       </p>
                     )}
                   </div>

@@ -61,7 +61,7 @@ export async function GET(request) {
       },
     });
 
-    // Generate AI recommendations
+    // Generate recommendations
     const recommendations = await generateRecommendations(
       user.id,
       viewedProducts,

@@ -403,11 +403,11 @@ export default function ReviewsPage() {
                       </div>
                     )}
 
-                    {/* AI Analysis */}
+                    {/* Analysis */}
                     {review.aiAnalysis && (
                       <div className="mt-3 pt-3 border-t border-gray-100">
                         <p className="text-xs font-medium text-gray-700 mb-1">
-                          AI Analysis:
+                          Analysis:
                         </p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                           {review.aiAnalysis.sentiment && (

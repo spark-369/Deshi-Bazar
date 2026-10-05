@@ -106,7 +106,6 @@ function SearchPageInner() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [aiPowered, setAiPowered] = useState(false);
   const [voiceError, setVoiceError] = useState("");
   const [voiceStatus, setVoiceStatus] = useState("");
   const inputRef = useRef(null);
@@ -193,7 +192,6 @@ function SearchPageInner() {
 
       const data = await productService.searchProducts(params);
       setSearchResults(data.products || []);
-      setAiPowered(data.aiPowered || false);
     } catch (error) {
       console.error("Search error:", error);
     } finally {
@@ -363,18 +361,6 @@ function SearchPageInner() {
                     className={isListening ? "text-red-500 animate-pulse" : ""}
                   />
                 </Button>
-
-                <Button
-                  type="button"
-                  variant={aiPowered ? "primary" : "outline"}
-                  onClick={() => handleSearch()}
-                  className="px-3 sm:px-4 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                  title="AI-powered search"
-                >
-                  <FaMagic className="text-xs sm:text-sm" />
-                  <span className="hidden sm:inline">AI</span>
-                  <span className="sm:hidden">AI</span>
-                </Button>
               </div>
             </div>
           </form>
@@ -412,11 +398,6 @@ function SearchPageInner() {
             {query && (
               <span className="text-sm text-gray-500 block sm:inline">
                 {searchResults.length} results for "{query}"
-                {aiPowered && (
-                  <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">
-                    AI Powered
-                  </span>
-                )}
               </span>
             )}
           </div>
@@ -531,14 +512,6 @@ function SearchPageInner() {
         ) : query ? (
           searchResults.length > 0 ? (
             <>
-              {aiPowered && (
-                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-center gap-2">
-                  <FaMagic className="text-purple-600" />
-                  <span className="text-purple-800 text-sm">
-                    AI-powered semantic search results
-                  </span>
-                </div>
-              )}
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                 {searchResults.map((product) => (
                   <ProductCard key={product.id} product={product} />
@@ -556,7 +529,7 @@ function SearchPageInner() {
               </p>
               <Button onClick={() => handleSearch()}>
                 <FaMagic className="mr-2" />
-                Try AI Search
+                Try Search
               </Button>
             </Card>
           )
@@ -602,7 +575,7 @@ function SearchPageInner() {
               <ul className="space-y-2 text-gray-600">
                 <li>• Use specific keywords for better results</li>
                 <li>• Try voice search for hands-free searching</li>
-                <li>• Use AI Search for semantic understanding</li>
+                <li>• Use specific keywords for better matching</li>
                 <li>• Combine filters to narrow down results</li>
               </ul>
             </Card>

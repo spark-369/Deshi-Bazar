@@ -327,7 +327,7 @@ export async function POST(request) {
           notes,
           shippingMethod,
           distance,
-          // AI delivery predictions (keeping for now, but note that delivery table is removed)
+          // Delivery predictions (keeping for now, but note that delivery table is removed)
           predictedDeliveryDate: new Date(deliveryPrediction.predictedDate),
           deliveryRiskScore: deliveryPrediction.riskScore,
           items: {

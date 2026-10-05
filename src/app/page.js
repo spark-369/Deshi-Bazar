@@ -111,14 +111,14 @@ export default function HomePage() {
        icon: <FaBolt className="text-4xl text-yellow-500" />,
        title: "Lightning Fast",
        description:
-         "AI-powered instant price matching and smart deals delivered in seconds",
+         "Fast price matching and smart deals delivered in seconds",
        bgColor: "from-yellow-50 to-orange-50",
      },
      {
        icon: <FaRobot className="text-4xl text-blue-500" />,
-       title: "AI Smart Bargaining",
+       title: "Smart Bargaining",
        description:
-         "Intelligent negotiation engine that gets you the best prices automatically",
+         "Smart negotiation that helps you get the best prices automatically",
        bgColor: "from-blue-50 to-indigo-50",
      },
      {
@@ -132,7 +132,7 @@ export default function HomePage() {
        icon: <FaTruck className="text-4xl text-purple-500" />,
        title: "Smart Delivery",
        description:
-         "AI-predicted delivery times with real-time tracking and route optimization",
+         "Predicted delivery times with real-time tracking and route optimization",
        bgColor: "from-purple-50 to-pink-50",
      },
    ];
@@ -189,21 +189,20 @@ export default function HomePage() {
             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-4">
               <FaBolt className="text-yellow-400 text-sm" />
               <span className="text-xs font-medium text-white">
-                AI-Powered Smart Shopping Platform
+                Smart Shopping Platform
               </span>
             </div>
 
             <h1 className="text-3xl md:text-5xl font-bold mb-4 leading-tight">
               Shop Smarter with{" "}
               <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                AI Intelligence
+                Smart Technology
               </span>
             </h1>
 
             <p className="text-base md:text-lg text-blue-100 mb-6 leading-relaxed max-w-3xl mx-auto">
-              Experience the future of e-commerce with intelligent price
-              negotiation, personalized recommendations, and seamless shopping
-              powered by cutting-edge AI technology.
+              Experience the future of e-commerce with smart price negotiation,
+              personalized recommendations, and seamless shopping in one place.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
@@ -278,12 +277,11 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10 sm:mb-16">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
-              Why Choose AI Shop?
+              Why Choose Deshi Bazar?
             </h2>
             <p className="text-base sm:text-xl text-gray-600 max-w-3xl mx-auto px-4 sm:px-0">
               Our platform combines the best of traditional e-commerce with
-              cutting-edge AI technology to deliver an unmatched shopping
-              experience.
+              smart automation to deliver an unmatched shopping experience.
             </p>
           </div>
 
@@ -485,7 +483,7 @@ export default function HomePage() {
                   Recommended for You
                 </h2>
                 <p className="text-gray-600">
-                  AI-personalized picks based on your browsing history
+                  Personalized picks based on your browsing history
                 </p>
               </div>
               <Link
@@ -559,7 +557,7 @@ export default function HomePage() {
 
           <p className="text-base md:text-lg text-blue-100 mb-6 max-w-2xl mx-auto leading-relaxed">
             Join millions of smart shoppers who are already saving money with
-            AI-powered price negotiation and personalized recommendations.
+            price negotiation and personal recommendations.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">

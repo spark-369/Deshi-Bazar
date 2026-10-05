@@ -125,7 +125,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center flex-shrink-0 group">
             <span className="text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-clip-text text-transparent bg-[length:200%_auto] group-hover:bg-[position:right] transition-all duration-500">
-              AI Shop
+              Deshi Bazar
             </span>
           </Link>
 
@@ -166,7 +166,7 @@ export default function Navbar() {
                       className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1.5"
                     >
                       <FaStar className="text-[10px]" />
-                      AI Search for &quot;{searchQuery}&quot;
+                      Search for &quot;{searchQuery}&quot;
                     </button>
                   </div>
                 </div>
@@ -448,7 +448,7 @@ export default function Navbar() {
                     className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1.5"
                   >
                     <FaStar className="text-[10px]" />
-                    AI Search for &quot;{searchQuery}&quot;
+                    Search for &quot;{searchQuery}&quot;
                   </button>
                 </div>
               </div>

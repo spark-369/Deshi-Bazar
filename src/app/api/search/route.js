@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { verifyToken, extractToken } from "@/lib/auth";
 import { generateEmbedding } from "@/lib/ai";
 
-// GET /api/search - Search products with AI
+// GET /api/search - Search products
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -18,7 +18,6 @@ export async function GET(request) {
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 20;
     const suggestionsOnly = searchParams.get("suggestions") === "true";
-    const aiSearch = searchParams.get("ai") === "true";
 
     // Get user for personalized search (optional auth)
     const authHeader = request.headers.get("authorization");
@@ -41,9 +40,9 @@ export async function GET(request) {
       });
     }
 
-    // Build base filters. Search is semantic (no strict substring filter) —
-    // candidates are ranked by embedding similarity from the lightweight
-    // HuggingFace feature-extraction model (all-MiniLM-L6-v2) used in generateEmbedding.
+    // Build base filters. Search is relevance-ranked (no strict substring filter) —
+    // candidates are ranked by embedding similarity from the lightweight,
+    // dependency-free feature-hashed embedding in generateEmbedding().
     let where = {
       status: "ACTIVE",
       price: {
@@ -73,10 +72,10 @@ export async function GET(request) {
     let products;
 
     if (query && queryEmbedding) {
-      // Semantic search: fetch candidates then rank by a combination of text
-      // overlap and embedding similarity. Text matches are authoritative (so a
-      // legitimate keyword match is always returned), while embedding similarity
-      // acts as a ranking booster for semantic relevance. This avoids the
+      // Fetch candidates then rank by a combination of text overlap and
+      // embedding similarity. Text matches are authoritative (so a legitimate
+      // keyword match is always returned), while embedding similarity
+      // acts as a ranking booster for related-product relevance. This avoids the
       // previous bug where sparse, feature-hashed embeddings produced zero or
       // negative dot products for genuinely matching products and everything was
       // filtered out by `relevanceScore > 0`.
@@ -107,7 +106,7 @@ export async function GET(request) {
             }
           }
 
-          // Semantic similarity from stored embedding (optional booster).
+          // Embedding similarity from stored vector (optional booster).
           let semanticScore = 0;
           if (product.embedding) {
             try {
@@ -192,7 +191,7 @@ export async function GET(request) {
       };
     });
 
-    // Pagination + total (semantic results are ranked/sliced in memory)
+    // Pagination + total (ranked results are sliced in memory)
     let total;
     let pagedProducts;
     if (query) {
@@ -229,8 +228,6 @@ export async function GET(request) {
         total,
         totalPages: Math.ceil(total / limit),
       },
-      aiSuggestions: [],
-      aiPowered: aiSearch || (query && query.length >= 2),
     });
   } catch (error) {
     console.error("Search error:", error);

@@ -177,7 +177,7 @@ export async function POST(request) {
       );
     }
 
-    // Calculate AI-suggested price range for negotiation (non-blocking)
+    // Calculate suggested price range for negotiation (non-blocking)
     const priceSuggestion = await suggestNegotiationPrice(price, price * 0.85).catch(() => ({
       minAcceptable: price * 0.7,
       maxAcceptable: price * 0.95,

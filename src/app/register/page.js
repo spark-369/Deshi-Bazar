@@ -251,8 +251,8 @@ function RegisterPageInner() {
 
             <p className="text-md text-gray-600 mb-3 leading-snug max-w-xl">
               {defaultRole === "SELLER"
-                ? "Join thousands of sellers on our AI-powered marketplace."
-                : "Join our AI-powered marketplace for smart shopping."}
+                ? "Join thousands of sellers on our marketplace."
+                : "Join our marketplace for smart shopping."}
             </p>
           </div>
 

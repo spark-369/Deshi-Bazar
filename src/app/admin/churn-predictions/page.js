@@ -227,7 +227,7 @@ export default function ChurnPredictionsPage() {
                 Churn Predictions
               </h1>
               <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
-                AI-powered customer churn risk analysis
+                Customer churn risk analysis
               </p>
             </div>
           </div>

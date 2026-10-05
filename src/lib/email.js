@@ -3,7 +3,7 @@ import nodemailer from "nodemailer";
 const {
   GMAIL_USER,
   GMAIL_APP_PASSWORD,
-  GMAIL_FROM_NAME = "AI Shop",
+  GMAIL_FROM_NAME = "Deshi Bazar",
 } = process.env;
 
 if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
@@ -41,7 +41,7 @@ export async function send2FACode(email, code) {
               <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
                 <tr>
                   <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">AI Shop</h1>
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Deshi Bazar</h1>
                     <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 14px;">Secure Authentication</p>
                   </td>
                 </tr>
@@ -116,7 +116,7 @@ export async function sendPasswordResetEmail(email, resetUrl) {
               <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
                 <tr>
                   <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">AI Shop</h1>
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Deshi Bazar</h1>
                     <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 14px;">Account Security</p>
                   </td>
                 </tr>

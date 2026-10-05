@@ -1,12 +1,12 @@
-# AI-Powered E-Commerce Platform
+# Deshi Bazar — Bangladeshi E-Commerce Marketplace
 
-A comprehensive, AI-driven e-commerce platform featuring intelligent price negotiation, personalized recommendations, semantic search, fraud detection, and comprehensive analytics for buyers, sellers, and administrators.
+**Deshi Bazar** (দেশী বাজার, *"Local Market"*) is a comprehensive multi-vendor e-commerce marketplace built for Bangladesh. It offers price negotiation ("bhada-bhadi"), recommendations, search, fraud protection, and full analytics — combined with Bangladesh-specific payments (bKash, cash on delivery), locations (divisions & districts), and grocery/fresh-market features for buyers, sellers, and administrators.
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Tech Stack](#tech-stack)
-- [AI Features](#ai-features)
+- [Smart Features](#smart-features)
 - [Project Structure](#project-structure)
 - [Database Schema](#database-schema)
 - [API Documentation](#api-documentation)
@@ -21,7 +21,7 @@ A comprehensive, AI-driven e-commerce platform featuring intelligent price negot
 
 ## Overview
 
-This platform combines modern e-commerce functionality with cutting-edge AI capabilities to create an intelligent shopping experience. Built with Next.js 16 (App Router), React 19, and PostgreSQL, it leverages Hugging Face Transformers.js for AI-powered features including semantic search, sentiment analysis, price negotiation suggestions, fraud detection, and personalized recommendations.
+**Deshi Bazar** is a modern, Bangladesh-native e-commerce marketplace. Built with Next.js 16 (App Router), React 19, and PostgreSQL (Neon serverless), it delivers search, review moderation, price negotiation suggestions, fraud protection, and recommendations. Business logic is implemented as lightweight, deterministic helper functions in `src/lib/ai.js`, which require no external ML runtime and keep the platform serverless-friendly.
 
 ## Tech Stack
 
@@ -36,9 +36,10 @@ This platform combines modern e-commerce functionality with cutting-edge AI capa
 
 ### Backend
 - **Runtime**: Next.js API Routes (Server-side)
-- **Database**: PostgreSQL via Prisma ORM 6.4.1
+- **Database**: Neon PostgreSQL (serverless) via Prisma ORM 6.4.1
 - **Authentication**: JWT (jose) with bcrypt password hashing
-- **AI Engine**: HuggingFace Transformers.js
+- **Business Logic**: Dependency-free deterministic helpers (`src/lib/ai.js`) — feature-hashed embeddings, lexicon sentiment, heuristic forecasting/negotiation/fraud/churn (no ML runtime, serverless-friendly)
+- **Email**: Gmail SMTP via Nodemailer (2FA codes, account security notices)
 - **File Upload**: Custom image upload endpoint
 - **Middleware**: Custom authentication and authorization middleware
 
@@ -49,24 +50,24 @@ This platform combines modern e-commerce functionality with cutting-edge AI capa
 - **Code Formatting**: Prettier (configured in package.json)
 - **Environment Variables**: dotenv
 
-## AI Features
+## Smart Features
 
-The platform integrates multiple AI capabilities powered by Hugging Face Transformers.js:
+**Deshi Bazar** ships a suite of smart, automated features implemented as **deterministic, dependency-free heuristics** in `src/lib/ai.js`. This design intentionally uses no heavy ML runtime, so the platform runs smoothly on serverless platforms like Vercel + Neon:
 
 | Feature | Description | Implementation |
 |---------|-------------|----------------|
-| **Semantic Search** | Vector embeddings powered search with understanding of user intent | `generateEmbedding()` in `src/lib/ai.js` |
-| **AI Search Suggestions** | Intelligent autocomplete with contextual understanding | `getAISearchSuggestions()` in `src/lib/ai.js` |
-| **Sentiment Analysis** | Understanding emotional tone of reviews and feedback | `analyzeSentiment()` in `src/lib/ai.js` |
-| **Fake Review Detection** | Identifying potentially fraudulent or spam reviews | `detectFakeReview()` in `src/lib/ai.js` |
-| **Price Negotiation Engine** | AI-suggested acceptable prices and acceptance predictions | `suggestNegotiationPrice()` & `predictOfferAcceptance()` in `src/lib/ai.js` |
+| **Search** | Relevance-ranked search combining text matching with feature-hashed embeddings | `generateEmbedding()` in `src/lib/ai.js` |
+| **Search Suggestions** | Autocomplete with keyword matching | `getAISearchSuggestions()` in `src/lib/ai.js` |
+| **Sentiment Analysis** | Lexicon-based emotional tone scoring of reviews and feedback | `analyzeSentiment()` in `src/lib/ai.js` |
+| **Fake Review Detection** | Heuristic identification of potentially fraudulent or spam reviews | `detectFakeReview()` in `src/lib/ai.js` |
+| **Price Negotiation Engine** | Suggested acceptable prices and acceptance probabilities | `suggestNegotiationPrice()` & `predictOfferAcceptance()` in `src/lib/ai.js` |
 | **Fraud Detection** | Real-time payment fraud scoring and flagging | `detectFraud()` in `src/lib/ai.js` |
-| **Delivery Time Prediction** | Estimating delivery dates based on multiple factors | `predictDeliveryTime()` in `src/lib/ai.js` |
-| **Personalized Recommendations** | Collaborative filtering based on user behavior | `generateRecommendations()` in `src/lib/ai.js` |
-| **Sales Forecasting** | Predicting future sales trends | `forecastSales()` in `src/lib/ai.js` |
+| **Delivery Time Prediction** | Estimating delivery dates based on distance and shipping method | `predictDeliveryTime()` in `src/lib/ai.js` |
+| **Recommendations** | Behavior-based product recommendations | `generateRecommendations()` in `src/lib/ai.js` |
+| **Sales Forecasting** | Trend detection from historical sales data | `forecastSales()` in `src/lib/ai.js` |
 | **Customer Churn Prediction** | Identifying at-risk customers for retention efforts | `predictChurn()` in `src/lib/ai.js` |
-| **Category Matching** | Zero-shot classification for automatic product categorization | `matchCategoryZeroShot()` in `src/lib/ai.js` |
-| **Offensive Content Masking** | Automatic detection and masking of inappropriate language | `maskBadWords()` in `src/lib/ai.js` |
+| **Category Matching** | Keyword-overlap matching for automatic product categorization | `matchCategoryZeroShot()` in `src/lib/ai.js` |
+| **Offensive Content Masking** | Detection and masking of inappropriate language | `maskBadWords()` in `src/lib/ai.js` |
 
 ## Project Structure
 
@@ -87,9 +88,9 @@ my-app/
 │   │   │   ├── orders/         # Order management
 │   │   │   ├── payments/       # Payment processing
 │   │   │   ├── products/       # Product catalog
-│   │   │   ├── recommendations/# AI recommendations
+│   │   │   ├── recommendations/# Product recommendations
 │   │   │   ├── reviews/        # Product reviews
-│   │   │   ├── search/         # Semantic search
+│   │   │   ├── search/         # Product search
 │   │   │   ├── stats/          # Platform statistics
 │   │   │   ├── upload-image/   # File upload handling
 │   │   │   └── users/          # User management
@@ -123,8 +124,10 @@ my-app/
 │   │   ├── ProductContext.js   # Product catalog state
 │   │   └── index.js            # Context exports
 │   ├── lib/                    # Core utilities and helpers
-│   │   ├── ai.js               # AI/ML functions using HuggingFace
+│   │   ├── ai.js               # Deterministic business-logic helper functions (no ML runtime)
 │   │   ├── auth.js             # JWT and password utilities
+│   │   ├── churnService.js     # Churn prediction compute + persistence helper
+│   │   ├── email.js            # Transactional email (2FA, security notices)
 │   │   └── prisma.js           # Prisma client instance
 │   └── services/               # Business logic layer
 │       ├── api.js              # HTTP client with request/response interceptors
@@ -133,11 +136,11 @@ my-app/
 │       ├── cartService.js      # Cart and wishlist management
 │       ├── orderService.js     # Order processing (regular & custom)
 │       ├── productService.js   # Product catalog operations
-│       ├── recommendationService.js # AI recommendations
+│       ├── recommendationService.js # Product recommendations
 │       ├── reviewService.js    # Review management
 │       ├── statsService.js     # Platform statistics
 │       └── index.js            # Service exports
-├── .env                        # Environment variables (not in version control)
+├── .env                        # Environment variables (database, JWT, Gmail — keep out of VCS)
 ├── .gitignore                  # Git ignore rules
 ├── jsconfig.json               # JavaScript/TypeScript configuration
 ├── next.config.js              # Next.js configuration
@@ -149,7 +152,7 @@ my-app/
 
 ## Database Schema
 
-The platform uses a normalized PostgreSQL schema designed for scalability and data integrity:
+**Deshi Bazar** uses a normalized PostgreSQL schema (hosted on Neon) designed for scalability and data integrity:
 
 ### Core Models
 
@@ -158,7 +161,7 @@ The platform uses a normalized PostgreSQL schema designed for scalability and da
    - Location data for distance-based calculations
    - 2FA support for enhanced security
 
-2. **UserProfile** - Extended user information with AI tracking fields
+2. **UserProfile** - Extended user information with behavioral tracking fields
    - Behavioral analytics (avg order value, purchase frequency)
    - Browsing and purchase history for recommendations
    - Interests and preferences for personalization
@@ -173,15 +176,15 @@ The platform uses a normalized PostgreSQL schema designed for scalability and da
    - Dual pricing (original/discounted) for promotions
    - Product type distinction (REGULAR/GROCERY)
    - Grocery-specific attributes (unit, weight, expiry, organic)
-   - Negotiable pricing with AI-suggested boundaries
-   - AI-generated tags and embeddings for search
+   - Negotiable pricing with suggested boundaries
+   - Auto-generated tags and embeddings for search
    - Stock management and status tracking
 
 5. **Order** - Customer purchases
    - Structured address fields for shipping/billing
    - Distance calculation between buyer and seller
    - Shipping method and cost based on distance
-   - AI delivery time predictions and risk scoring
+   - Delivery time predictions and risk scoring
    - Tax, discount, and shipping calculations
    - Order number generation for tracking
 
@@ -214,11 +217,11 @@ The platform uses a normalized PostgreSQL schema designed for scalability and da
 
 11. **Offer** - Price negotiation system
     - Initial offer, counter-offer, and final price tracking
-    - AI-suggested acceptable price and confidence
+    - Suggested acceptable price and confidence
     - Expiration and status management
     - Negotiation message history
 
-12. **ProductRecommendation** - AI-generated suggestions
+12. **ProductRecommendation** - Behavior-based suggestions
     - Recommendation scoring algorithm
     - Reason explanation for transparency
     - Bidirectional relationship tracking
@@ -226,7 +229,7 @@ The platform uses a normalized PostgreSQL schema designed for scalability and da
 13. **SearchHistory** - User search behavior tracking
     - Query storage with applied filters
     - Results count for analytics
-    - AI-generated suggestions storage
+    - Auto-generated suggestions storage
 
 14. **SalesAnalytics** - Business intelligence data
     - Daily revenue and order aggregation
@@ -234,7 +237,7 @@ The platform uses a normalized PostgreSQL schema designed for scalability and da
     - Trend analysis foundation
 
 15. **TrendingProduct** - Popularity tracking
-    - AI-calculated trend scores
+    - Calculated trend scores
     - View and purchase counting
     - Search ranking integration
     - Time-period based analysis (daily/weekly/monthly)
@@ -289,7 +292,7 @@ All API routes follow RESTful conventions and are prefixed with `/api`. Authenti
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | GET | `/api/products` | List products with filters (category, price, type, search, sort, pagination) | No |
-| POST | `/api/products` | Create product (generates AI embedding & price suggestions) | Seller/Admin |
+| POST | `/api/products` | Create product (generates embedding & price suggestions) | Seller/Admin |
 | GET | `/api/products/[id]` | Get single product with seller, category, reviews | No |
 | PUT | `/api/products/[id]` | Update product | Seller/Admin |
 | DELETE | `/api/products/[id]` | Delete product | Seller/Admin |
@@ -319,7 +322,7 @@ All API routes follow RESTful conventions and are prefixed with `/api`. Authenti
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | GET | `/api/orders?type=buyer\|seller\|all&status=X` | Get orders (filters by role and status) | Yes |
-| POST | `/api/orders` | Create order from cart (validates stock, calculates tax/shipping by distance, AI delivery prediction) | Buyer |
+| POST | `/api/orders` | Create order from cart (validates stock, calculates tax/shipping by distance, delivery prediction) | Buyer |
 | PUT | `/api/orders` | Update order status (`cancel`, `confirm`, `ship`, `deliver`, `return`) | Based on role/action |
 | PUT | `/api/orders/[id]` | Update order details (shipping address, notes, etc.) | Seller/Admin |
 | DELETE | `/api/orders/[id]` | Delete order | Admin |
@@ -343,7 +346,7 @@ All API routes follow RESTful conventions and are prefixed with `/api`. Authenti
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | GET | `/api/offers?type=sent\|received&status=X` | Get offers (sent/received by user) | Yes |
-| POST | `/api/offers` | Create offer with AI price suggestion & acceptance prediction | Buyer |
+| POST | `/api/offers` | Create offer with price suggestion & acceptance prediction | Buyer |
 | PUT | `/api/offers` | Respond to offer (`accept`, `reject`, `counter`, `accept_counter`) | Buyer/Seller |
 | DELETE | `/api/offers/[id]` | Delete offer | Buyer/Admin |
 
@@ -363,7 +366,7 @@ All API routes follow RESTful conventions and are prefixed with `/api`. Authenti
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | GET | `/api/reviews?productId=X` | Get reviews with stats (avg rating, distribution) | No |
-| POST | `/api/reviews` | Create review with AI sentiment analysis & fake detection | Buyer |
+| POST | `/api/reviews` | Create review with sentiment analysis & fake detection | Buyer |
 | PUT | `/api/reviews` | Update review | Buyer |
 | DELETE | `/api/reviews?reviewId=X` | Delete review | Buyer/Admin |
 
@@ -374,7 +377,7 @@ autocomplete. It powers the `/search` page and the Navbar search box.
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/search?q=X&categoryId=X&minPrice=X&maxPrice=X&ai=true` | Semantic search with embedding + text ranking | No (optional auth for history) |
+| GET | `/api/search?q=X&categoryId=X&minPrice=X&maxPrice=X` | Relevance-ranked search (text + embedding ranking) | No (optional auth for history) |
 | GET | `/api/search?suggestions=true&q=X` | Autocomplete suggestions | No |
 | GET | `/api/search/history` | Recent searches for the authenticated user | Yes |
 | DELETE | `/api/search/history` | Clear the authenticated user's search history | Yes |
@@ -393,7 +396,7 @@ autocomplete. It powers the `/search` page and the Navbar search box.
 | `sortBy` | `string` | `relevance` | One of `relevance`, `price_asc`, `price_desc`, `newest`, `rating`. |
 | `page` | `number` | `1` | Page number (1-based). |
 | `limit` | `number` | `20` | Results per page. |
-| `ai` | `"true"` | — | Marks the response as AI-powered (informational only). |
+| `ai` | `"true"` | — | Legacy flag (kept for backward compatibility; no longer drives any behavior). |
 
 **How ranking works**
 
@@ -406,13 +409,10 @@ combination of two signals:
    token is guaranteed to be returned.
 2. **Embedding similarity (booster)** — the query and each product are converted to
    feature-hashed, L2-normalized vectors via `generateEmbedding()` in `src/lib/ai.js`, and
-   their cosine (dot-product) similarity adds a secondary ranking signal for semantic
-   relevance.
+   their cosine (dot-product) similarity adds a secondary ranking signal for related products.
 
-This hybrid approach ensures that legitimate keyword matches are always surfaced (previously
-they could be dropped when sparse hashed embeddings produced zero/negative similarity), while
-still leveraging semantic similarity to surface closely-related products that don't share
-literal keywords.
+This hybrid approach ensures that legitimate keyword matches are always surfaced while also
+elevating closely-related products that don't share literal keywords.
 
 **Response shape**
 
@@ -437,8 +437,7 @@ literal keywords.
     "total": 42,
     "totalPages": 3
   },
-  "aiSuggestions": [],
-  "aiPowered": true
+  "suggestions": []
 }
 ```
 
@@ -456,7 +455,7 @@ first 8.
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | GET | `/api/recommendations?userId=X&limit=20` | Get personalized recommendations | Yes (optional) |
-| POST | `/api/recommendations` | Generate AI recommendations for user | Admin |
+| POST | `/api/recommendations` | Generate recommendations for user | Admin |
 | PUT | `/api/recommendations` | Update recommendation score/reason | Admin |
 | DELETE | `/api/recommendations` | Delete recommendation | Admin |
 
@@ -524,12 +523,16 @@ TWO_FACTOR_TEMP_EXPIRES_IN=5m
 
 ### Database Setup
 
+The database is hosted on **Neon** (serverless PostgreSQL). The `.env` file must contain both the pooled (`DATABASE_URL`) and unpooled (`DATABASE_URL_UNPOOLED`) connection strings — see [Environment Variables](#environment-variables).
+
 ```bash
 # Generate Prisma client
 npx prisma generate
 
-# Run migrations
-npx prisma migrate dev
+# Apply migrations to the Neon database (uses DATABASE_URL_UNPOOLED)
+npx prisma migrate deploy
+#    ...or for a fresh dev database:
+# npx prisma db push
 
 # Optional: Seed database with initial data
 # npx prisma db seed
@@ -556,7 +559,7 @@ npm run start
 |------|-------------|
 | **BUYER** | Browse products, add to cart/wishlist, create orders, make offers, write reviews, track orders, manage profile |
 | **SELLER** | Create/manage products, manage orders, respond to offers, handle custom orders, view analytics, manage profile |
-| **ADMIN** | Full platform management, user management, category management, analytics dashboard, AI recommendation control, churn prediction oversight, system configuration |
+| **ADMIN** | Full platform management, user management, category management, analytics dashboard, recommendation control, churn prediction oversight, system configuration |
 
 ### Permission Matrix
 
@@ -587,45 +590,45 @@ npm run start
 | View Analytics | Limited | Own Products | Full |
 | Manage Categories | ✗ | ✗ | ✓ |
 | Manage Users | ✗ | ✗ | ✓ |
-| Generate AI Recommendations | ✗ | ✗ | ✓ |
+| Generate Recommendations | ✗ | ✗ | ✓ |
 | View Churn Predictions | ✗ | ✗ | ✓ |
 
 ## Key Features
 
-### AI-Powered Intelligence
+### Smart & Automated Intelligence
 
-1. **Semantic Search & Discovery**
+1. **Search & Discovery**
    - Hybrid ranking that combines authoritative token-based text matching with
-     feature-hashed, L2-normalized vector embeddings for semantic relevance
+     feature-hashed, L2-normalized vector embeddings for related-product relevance
    - Token-level matching against `name`, `description`, and `tags` so partial and
      multi-word queries still return results (not just exact substrings)
-   - Context-aware autocomplete suggestions
-   - Intelligent re-ranking by relevance, price, newest, or average rating
+   - Autocomplete suggestions
+   - Re-ranking by relevance, price, newest, or average rating
    - Full-featured `/search` interface with filters (category, price range), voice
      search, and persisted search history
 
 2. **Smart Price Negotiation**
-   - AI-suggested acceptable price ranges
-   - Offer acceptance probability prediction
+   - Suggested acceptable price ranges (deterministic heuristics)
+   - Offer acceptance probability
    - Dynamic counter-offer suggestions
    - Market-based pricing insights
 
 3. **Personalized Experience**
-   - Collaborative filtering recommendations
-   - Behavior-based product suggestions
+   - Behavior-based recommendations
+   - Product suggestions from browsing/purchase history
    - Browsing history analysis
    - Interest modeling for discovery
 
 4. **Trust & Safety**
-   - Real-time fraud detection scoring
+   - Real-time fraud scoring and flagging
    - Fake review identification
    - Offensive content filtering
-   - Trust scoring for users and transactions
+   - Trust signals for users and transactions
 
-5. **Operational Intelligence**
-   - Sales forecasting and trend analysis
-   - Customer churn prediction
-   - Inventory optimization suggestions
+5. **Analytics & Forecasting**
+   - Sales trend analysis and forecasting
+   - Customer churn scoring
+   - Inventory insights
    - Delivery time estimation
 
 ### Core E-Commerce Functionality
@@ -695,7 +698,7 @@ npm run start
 ## Search
 
 The search feature is accessible at `/search` and from the Navbar search box. It combines
-keyword matching with semantic (AI) ranking to return relevant products, and it supports
+keyword matching with relevance ranking to return relevant products, and it supports
 filters, voice input, suggestions, and history.
 
 ### User Interface
@@ -713,12 +716,11 @@ The `/search` page provides:
   (`relevance`, `price_asc`, `price_desc`, `newest`, `rating`).
 - **Recent searches** — persisted server-side (in the `SearchHistory` table) for authenticated
   users, or in `localStorage` for anonymous users.
-- **AI search indicator** — a badge shown when semantic ranking enriched the results.
 
 ### How Results Are Ranked
 
 Ranking is implemented in `src/app/api/search/route.js` and `src/lib/ai.js`. It uses a hybrid
-of two signals so that both literal and semantically-related products are surfaced:
+of two signals so that both literal and related products are surfaced:
 
 1. **Text matching (authoritative)** — the query is lowercased and split into tokens, then
    matched against the concatenated `name`, `description`, and `tags` of each product. An exact
@@ -757,7 +759,7 @@ any speech support is detected up front via the `getSpeechRecognition()` null ch
 | `src/app/api/search/history/route.js` | Recent-search history retrieval and clearing |
 | `src/services/productService.js` | Client-side service layer (`searchProducts`, `getSearchSuggestions`) |
 | `src/components/layout/Navbar.js` | Search box with autocomplete in the header |
-| `src/lib/ai.js` | `generateEmbedding()` and `getAISearchSuggestions()` |
+| `src/lib/ai.js` | `generateEmbedding()` and `getAISearchSuggestions()` (search helpers) |
 
 ## Available Scripts
 
@@ -777,9 +779,13 @@ any speech support is detected up front via the `getSpeechRecognition()` null ch
 
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/ecom` | Yes |
+| `DATABASE_URL` | Neon pooled PostgreSQL connection (has `-pooler` in host) | `postgresql://user:pass@host-pooler.region.aws.neon.tech/db?sslmode=require` | Yes |
+| `DATABASE_URL_UNPOOLED` | Neon direct (unpooled) connection for Prisma CLI migrations | `postgresql://user:pass@host.region.aws.neon.tech/db?sslmode=require` | Yes (for `prisma migrate`/`db push`) |
 | `JWT_SECRET` | Secret for signing JWT tokens | `your-super-secret-key` | Yes |
 | `JWT_EXPIRES_IN` | JWT expiration time | `7d` | No (defaults to 7d) |
+| `NEXT_PUBLIC_API_URL` | Base URL for the API client | `http://localhost:3000` | Yes |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Gmail SMTP credentials for 2FA emails | `user@gmail.com` / `app-password` | Optional (email features) |
+| `GMAIL_FROM_NAME` | Sender name for transactional emails | `Deshi Bazar` | No (defaults to `Deshi Bazar`) |
 | `TWO_FACTOR_TEMP_EXPIRES_IN` | 2FA token expiration | `5m` | No (defaults to 5m) |
 
 ## Architecture Overview
@@ -789,7 +795,7 @@ any speech support is detected up front via the `getSpeechRecognition()` null ch
 ```
 Component → Service Layer → API Route → Prisma ORM → PostgreSQL
                                     ↓
-                             AI Processing Layer (src/lib/ai.js)
+                             Business Logic Layer (src/lib/ai.js)
 ```
 
 ### Key Architectural Patterns
@@ -799,14 +805,14 @@ Component → Service Layer → API Route → Prisma ORM → PostgreSQL
    - Application Layer (Services & Context)
    - API Layer (Next.js Routes)
    - Data Access Layer (Prisma ORM)
-   - AI Processing Layer (HuggingFace Transformers)
+   - Business Logic Layer (deterministic heuristics in `src/lib/ai.js`)
 
 2. **Separation of Concerns**
    - UI components handle presentation only
    - Services contain business logic
    - API routes handle HTTP concerns
    - Prisma handles data persistence
-   - AI library handles machine learning
+   - Business-logic library (`src/lib/ai.js`) handles predictive heuristics
 
 3. **Context-Based State Management**
    - AuthContext for user authentication state
@@ -829,9 +835,9 @@ Component → Service Layer → API Route → Prisma ORM → PostgreSQL
    - Client-side caching with SWR/react-query patterns
 
 2. **Server-Side**
-   - Database connection pooling
+   - Database connection pooling (Neon serverless driver)
    - Query optimization with Prisma
-   - AI model caching and lazy loading
+   - In-memory heuristic reuse (cheap, deterministic — no model to cache)
    - HTTP caching headers
    - Compression and minification
 
@@ -900,10 +906,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- Hugging Face for Transformers.js library
-- Next.js team for the React framework
-- Prisma team for the ORM solution
-- Tailwind CSS for the utility-first CSS framework
+- [Next.js](https://nextjs.org/) team for the React framework
+- [Prisma](https://www.prisma.io/) team for the ORM solution
+- [Neon](https://neon.com/) for the serverless PostgreSQL database
+- [Tailwind CSS](https://tailwindcss.com/) for the utility-first CSS framework
+- [Recharts](https://recharts.org/) for the charting library
+- [React Icons](https://react-icons.github.io/react-icons/) for the icon set
 - All open-source contributors whose work made this project possible
 
 ---

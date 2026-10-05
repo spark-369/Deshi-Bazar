@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { matchCategoryZeroShot } from "@/lib/ai";
 
-// GET /api/categories/match - Match product name to categories using zero-shot classification
+// GET /api/categories/match - Match product name to categories using keyword matching
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -43,7 +43,7 @@ export async function GET(request) {
       });
     });
 
-    // Perform zero-shot classification
+    // Perform category matching
     const matchResult = await matchCategoryZeroShot(productName, categoryList);
 
     // Enrich matches with category details
