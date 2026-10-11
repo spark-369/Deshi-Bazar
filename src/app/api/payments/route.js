@@ -7,70 +7,116 @@ import { v4 as uuidv4 } from "uuid";
 // GET /api/payments - Get payments (own for buyer/seller, all for admin)
 export async function GET(request) {
   try {
-    const authHeader = request.headers.get("authorization");
+    const authHeader = request.headers.get('authorization');
     const token = extractToken(authHeader);
 
     if (!token) {
       return NextResponse.json(
-        { error: "Authentication required" },
+        { error: 'Authentication required' },
         { status: 401 },
       );
     }
 
     const user = await verifyToken(token);
     if (!user) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    let payments;
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search') || '';
+    const status = searchParams.get('status') || '';
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const skip = (page - 1) * limit;
 
-    if (user.role === "ADMIN") {
-      // Admin sees all payments
-      payments = await prisma.payment.findMany({
-        include: {
-          user: { select: { id: true, name: true, email: true } },
-          order: true,
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    } else if (user.role === "SELLER") {
-      // Seller sees payments for orders that contain their products
+    let baseQuery = {};
+
+    if (user.role === 'ADMIN') {
+      baseQuery = {};
+    } else if (user.role === 'SELLER') {
       const sellerProductIds = await prisma.product.findMany({
         where: { sellerId: user.id },
         select: { id: true },
       });
       const productIds = sellerProductIds.map((p) => p.id);
-
-      payments = await prisma.payment.findMany({
-        where: {
-          order: {
-            items: {
-              some: { productId: { in: productIds } },
+      baseQuery = {
+        OR: [
+          {
+            order: {
+              items: {
+                some: { productId: { in: productIds } },
+              },
             },
           },
-        },
+          { customOrder: { sellerId: user.id } },
+        ],
+      };
+    } else {
+      baseQuery = { userId: user.id };
+    }
+
+    const whereConditions = [baseQuery];
+
+    if (status) {
+      whereConditions.push({ status });
+    }
+
+    if (search) {
+      const numeric = isNaN(parseFloat(search)) ? null : parseFloat(search);
+      const validStatuses = ['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED', 'FLAGGED'];
+      const upperSearch = search.toUpperCase();
+      const statusMatch = validStatuses.find((s) => s.includes(upperSearch));
+      const searchConditions = [
+        { order: { orderNumber: { contains: search, mode: 'insensitive' } } },
+        { customOrder: { orderNumber: { contains: search, mode: 'insensitive' } } },
+        { transactionId: { contains: search, mode: 'insensitive' } },
+        { method: { contains: search, mode: 'insensitive' } },
+        { currency: { contains: search, mode: 'insensitive' } },
+        { flagReason: { contains: search, mode: 'insensitive' } },
+        { cardLast4: { contains: search, mode: 'insensitive' } },
+        ...(statusMatch ? [{ status: { equals: statusMatch } }] : []),
+        ...(numeric !== null
+          ? [
+              { amount: { equals: numeric } },
+              { fraudScore: { equals: numeric } },
+            ]
+          : []),
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+      whereConditions.push({ OR: searchConditions });
+    }
+
+    const where = whereConditions.length > 1 ? { AND: whereConditions } : whereConditions[0];
+
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
         include: {
           user: { select: { id: true, name: true, email: true } },
           order: true,
+          customOrder: true,
         },
-        orderBy: { createdAt: "desc" },
-      });
-    } else {
-      // Buyer sees only their own payments
-      payments = await prisma.payment.findMany({
-        where: { userId: user.id },
-        include: {
-          order: true,
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.payment.count({ where }),
+    ]);
 
-    return NextResponse.json(payments);
+    return NextResponse.json({
+      payments,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
-    console.error("Get payments error:", error);
+    console.error('Get payments error:', error);
     return NextResponse.json(
-      { error: "Failed to fetch payments" },
+      { error: 'Failed to fetch payments' },
       { status: 500 },
     );
   }
@@ -191,6 +237,7 @@ export async function POST(request) {
         userId: user.id,
         orderId,
         amount,
+        currency: "BDT",
         method,
         transactionId: paymentTransactionId,
         fraudScore: fraudResult.riskScore,
@@ -211,20 +258,10 @@ export async function POST(request) {
       );
     }
 
-    // Simulate successful payment
-    const updatedPayment = await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "COMPLETED" },
-    });
-
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { status: "CONFIRMED" },
-    });
-
+    // Payment stays PENDING until confirmed/completed by the seller or admin
     return NextResponse.json(
       {
-        ...updatedPayment,
+        ...payment,
         fraudDetection: fraudResult,
       },
       { status: 201 },
@@ -320,6 +357,28 @@ export async function PUT(request) {
       updatePayload.isFlagged = false;
       updatePayload.flagReason = null;
       if (payment.orderId) {
+        await prisma.order.update({
+          where: { id: payment.orderId },
+          data: { status: "CONFIRMED" },
+        });
+      }
+    } else if (updateData.status) {
+      // Generic status update (seller/admin only)
+      const validStatuses = [
+        "PENDING",
+        "COMPLETED",
+        "FAILED",
+        "REFUNDED",
+        "FLAGGED",
+      ];
+      if (!validStatuses.includes(updateData.status)) {
+        return NextResponse.json(
+          { error: "Invalid status" },
+          { status: 400 },
+        );
+      }
+      updatePayload.status = updateData.status;
+      if (updateData.status === "COMPLETED" && payment.orderId) {
         await prisma.order.update({
           where: { id: payment.orderId },
           data: { status: "CONFIRMED" },

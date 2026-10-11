@@ -1,7 +1,7 @@
 // AI Utilities using HuggingFace Transformer.js
 // Note: These functions are designed for server-side use
 
-let pipeline = null;
+const pipelines = {};
 
 /**
  * Initialize the transformer pipeline lazily
@@ -9,12 +9,13 @@ let pipeline = null;
  * @param {string} model - Model name
  */
 async function getPipeline(task, model) {
-  if (!pipeline) {
+  const key = `${task}:${model}`;
+  if (!pipelines[key]) {
     const { pipeline: createPipeline } =
       await import("@huggingface/transformers");
-    pipeline = await createPipeline(task, model);
+    pipelines[key] = await createPipeline(task, model);
   }
-  return pipeline;
+  return pipelines[key];
 }
 
 /**
@@ -24,10 +25,7 @@ async function getPipeline(task, model) {
  */
 export async function analyzeSentiment(text) {
   try {
-    const sentimentPipeline = await getPipeline(
-      "sentiment-analysis",
-      "distilbert-base-uncased-finetuned-sst-2-english",
-    );
+    const sentimentPipeline = await getPipeline("sentiment-analysis");
     const result = await sentimentPipeline(text);
     return {
       score: result[0].score,
@@ -40,40 +38,62 @@ export async function analyzeSentiment(text) {
 }
 
 /**
+ * Mask offensive ("bad") words in a text by replacing them with "*".
+ * Detection is driven entirely by the sentiment model (no hardcoded word
+ * list): each word is analyzed, and strongly-negative words are masked.
+ * @param {string} text - The text to mask.
+ * @returns {Promise<string>} Text with offensive words replaced by "*".
+ */
+export async function maskBadWords(text) {
+  if (!text || typeof text !== "string") return text;
+
+  // Split while preserving whitespace so spacing is unchanged.
+  const tokens = text.split(/(\s+)/);
+
+  const masked = await Promise.all(
+    tokens.map(async (token) => {
+      const word = token.replace(/[^a-zA-Z]/g, "");
+      // Skip short / non-word tokens (articles, punctuation, etc.)
+      if (word.length < 3) return token;
+
+      try {
+        const sentiment = await analyzeSentiment(token);
+        if (sentiment.label === "NEGATIVE" && sentiment.score >= 0.9) {
+          return "*".repeat(token.length);
+        }
+      } catch (e) {
+        // If analysis fails, keep the original token.
+      }
+      return token;
+    }),
+  );
+
+  return masked.join("");
+}
+
+/**
  * Detect fake reviews using a classification model
  * @param {string} reviewText - Review text to analyze
  * @param {Object} reviewMetadata - Additional metadata
  * @returns {Object} Fake review detection result
  */
 export async function detectFakeReview(reviewText, reviewMetadata = {}) {
-  // Using a zero-shot classification approach for fake review detection
   try {
-    const { pipeline: zeroShot } = await import("@huggingface/transformers");
-    const classifier = await zeroShot(
-      "zero-shot-classification",
-      "facebook/bart-large-mnli",
-    );
-
-    const result = await classifier(reviewText, [
-      "genuine review",
-      "fake review",
-      "suspicious review",
-    ]);
-
     // Calculate fake score based on labels
-    const labels = result.labels;
-    const scores = result.scores;
-    const fakeIndex = labels.indexOf("fake review");
-    const suspiciousIndex = labels.indexOf("suspicious review");
-
-    const fakeScore =
-      (fakeIndex >= 0 ? scores[fakeIndex] : 0) +
-      (suspiciousIndex >= 0 ? scores[suspiciousIndex] * 0.5 : 0);
+    const sentiment = await analyzeSentiment(reviewText);
+    const label = sentiment.label;
+    const score = sentiment.score;
+    // A review is only treated as fake when it is strongly negative AND
+    // spam-like (very short). Sentiment alone must not mark a review fake,
+    // otherwise legitimate negative reviews get hidden/flagged incorrectly.
+    const wordCount = reviewText.trim().split(/\s+/).filter(Boolean).length;
+    const isFake = label === "NEGATIVE" && score > 0.99 && wordCount < 3;
+    const fakeScore = isFake ? score : 1 - score;
 
     return {
-      isFake: fakeScore > 0.5,
-      fakeScore: Math.min(fakeScore, 1),
-      confidence: Math.max(...scores),
+      isFake,
+      fakeScore,
+      confidence: fakeScore * 100,
     };
   } catch (error) {
     console.error("Fake review detection error:", error);
@@ -88,11 +108,10 @@ export async function detectFakeReview(reviewText, reviewMetadata = {}) {
  */
 export async function generateEmbedding(text) {
   try {
-    const { pipeline: featureExtraction } =
-      await import("@huggingface/transformers");
-    const extractor = await featureExtraction(
+    const extractor = await getPipeline(
       "feature-extraction",
       "sentence-transformers/all-MiniLM-L6-v2",
+      { dtype: "fp32" },
     );
 
     const result = await extractor(text, {
@@ -100,7 +119,7 @@ export async function generateEmbedding(text) {
       normalize: true,
     });
 
-    return Array.from(result);
+    return Array.from(result.data);
   } catch (error) {
     console.error("Embedding generation error:", error);
     return null;
@@ -537,7 +556,10 @@ export async function matchCategoryZeroShot(productName, categories = []) {
 
   try {
     const { pipeline } = await import("@huggingface/transformers");
-    const classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
+    const classifier = await pipeline(
+      "zero-shot-classification",
+      "Xenova/mobilebert-uncased-mnli",
+    );
 
     const result = await classifier(productName, categories);
 

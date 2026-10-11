@@ -40,6 +40,7 @@ const Input = forwardRef(({
             }
             focus:outline-none focus:ring-2 focus:ring-opacity-50
             transition-colors duration-200
+            text-base sm:text-sm
             ${className}
           `}
           {...props}
@@ -49,6 +50,7 @@ const Input = forwardRef(({
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            aria-label={showPassword ? "Hide password" : "Show password"}
           >
             {showPassword ? (
               <FaEyeSlash className="text-gray-400 hover:text-gray-600" />

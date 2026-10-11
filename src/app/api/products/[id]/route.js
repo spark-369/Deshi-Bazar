@@ -109,6 +109,7 @@ export async function PUT(request, { params }) {
       isNegotiable,
       status,
       estimatedDeliveryDays,
+      shippingCostPerUnit,
       tags,
     } = body;
 
@@ -140,6 +141,10 @@ export async function PUT(request, { params }) {
         isNegotiable,
         status,
         estimatedDeliveryDays,
+        shippingCostPerUnit:
+          shippingCostPerUnit !== undefined
+            ? parseFloat(shippingCostPerUnit) || 0
+            : undefined,
         tags,
         embedding,
       },

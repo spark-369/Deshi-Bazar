@@ -14,13 +14,9 @@ export async function GET(request) {
       where: { status: "ACTIVE" },
     });
 
-    // Calculate average rating from reviews
-    const reviews = await prisma.review.findMany({
-      select: { rating: true },
-    });
-    const avgRating = reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      : 0;
+    // Calculate average rating using aggregation instead of fetching all reviews
+    const reviewStats = await prisma.review.aggregate({ _avg: { rating: true } });
+    const avgRating = reviewStats._avg.rating || 0;
     const satisfactionRate = Math.round((avgRating / 5) * 100);
 
     // Get total orders (for additional context)

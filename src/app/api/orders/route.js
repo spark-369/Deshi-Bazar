@@ -25,6 +25,9 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const type = searchParams.get("type"); // 'buyer', 'seller', or 'all'
+    const division = searchParams.get("division");
+    const district = searchParams.get("district");
+    const search = searchParams.get("search");
 
     let where = {};
 
@@ -70,6 +73,38 @@ export async function GET(request) {
 
     if (status) {
       where.status = status;
+    }
+
+    // Filter by division / district (parsed from the shippingAddress string)
+    const addressFilters = [];
+    if (division) {
+      addressFilters.push({ shippingAddress: { contains: division, mode: "insensitive" } });
+    }
+    if (district) {
+      addressFilters.push({ shippingAddress: { contains: district, mode: "insensitive" } });
+    }
+
+    // Generic search across order number, buyer name/email, and address
+    if (search) {
+      const searchFilter = {
+        OR: [
+          { orderNumber: { contains: search, mode: "insensitive" } },
+          { shippingAddress: { contains: search, mode: "insensitive" } },
+          {
+            user: {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
+              ],
+            },
+          },
+        ],
+      };
+      addressFilters.push(searchFilter);
+    }
+
+    if (addressFilters.length > 0) {
+      where.AND = addressFilters;
     }
 
     const orders = await prisma.order.findMany({
@@ -127,9 +162,20 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
+    if (user.role !== "BUYER") {
+      return NextResponse.json(
+        { error: "Only buyers can place orders" },
+        { status: 403 },
+      );
+    }
+
     const body = await request.json();
     const {
       shippingAddress,
+      shipCountry,
+      shipDivision,
+      shipDistrict,
+      shipPostalCode,
       notes,
       shippingMethod = "standard",
       buyerLatitude,
@@ -156,22 +202,22 @@ export async function POST(request) {
 
     // Get billing address from seller's profile (first product's seller)
     let billingAddress = "No seller address";
+    let billingCountry = "";
+    let billingDivision = "";
+    let billingDistrict = "";
+    let billingPostalCode = "";
     if (cart.items.length > 0 && cart.items[0]?.product?.sellerId) {
       const sellerProfile = await prisma.userProfile.findUnique({
         where: { userId: cart.items[0].product.sellerId },
       });
 
       if (sellerProfile) {
-        const addressParts = [];
-        if (sellerProfile.address) addressParts.push(sellerProfile.address);
-        if (sellerProfile.city) addressParts.push(sellerProfile.city);
-        if (sellerProfile.state) addressParts.push(sellerProfile.state);
-        if (sellerProfile.zipCode) addressParts.push(sellerProfile.zipCode);
-        if (sellerProfile.country) addressParts.push(sellerProfile.country);
+        billingAddress = sellerProfile.address || "No seller address";
 
-        if (addressParts.length > 0) {
-          billingAddress = addressParts.join(", ");
-        }
+        billingCountry = sellerProfile.country || "";
+        billingDivision = sellerProfile.division || sellerProfile.state || "";
+        billingDistrict = sellerProfile.district || sellerProfile.city || "";
+        billingPostalCode = sellerProfile.postalCode || sellerProfile.zipCode || "";
       }
     }
 
@@ -206,8 +252,7 @@ export async function POST(request) {
       });
     }
 
-    // Calculate tax and shipping based on distance
-    const tax = subtotal * 0.1; // 10% tax
+    // Calculate shipping based on distance (tax removed)
     // Validate coordinates
     const buyerLat = parseFloat(buyerLatitude);
     const buyerLng = parseFloat(buyerLongitude);
@@ -253,7 +298,7 @@ export async function POST(request) {
         overnight: 2.0,
       }[shippingMethod] || 0.5;
     const shippingCost = distance * ratePerKm;
-    const total = subtotal + tax + shippingCost - discount;
+    const total = subtotal + shippingCost - discount;
 
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${uuidv4().substring(0, 8).toUpperCase()}`;
@@ -272,11 +317,18 @@ export async function POST(request) {
           orderNumber,
           subtotal,
           discount,
-          tax,
           shippingCost,
           total,
           shippingAddress,
           billingAddress,
+          shipCountry,
+          shipDivision,
+          shipDistrict,
+          shipPostalCode,
+          billingCountry: billingCountry,
+          billingDivision: billingDivision,
+          billingDistrict: billingDistrict,
+          billingPostalCode: billingPostalCode,
           notes,
           shippingMethod,
           distance,
@@ -323,14 +375,20 @@ export async function POST(request) {
         where: { cartId: cart.id },
       });
 
-      // Update user profile purchase history
-      const productIds = cart.items.map((item) => item.productId);
+      // Update user profile purchase history (flat, deduplicated list)
+      const newProductIds = cart.items.map((item) => item.productId);
+      const currentProfile = await tx.userProfile.findUnique({
+        where: { userId: user.id },
+        select: { purchaseHistory: true },
+      });
+      const currentHistory = Array.isArray(currentProfile?.purchaseHistory)
+        ? currentProfile.purchaseHistory.flat()
+        : [];
+      const updatedHistory = [...new Set([...currentHistory, ...newProductIds])];
       await tx.userProfile.update({
         where: { userId: user.id },
         data: {
-          purchaseHistory: {
-            push: productIds,
-          },
+          purchaseHistory: updatedHistory,
           totalSpent: {
             increment: total,
           },
@@ -410,32 +468,74 @@ export async function PUT(request) {
       // Determine which field contains the status
       const statusToUpdate = status || action;
 
-      if (statusToUpdate) {
-        // Validate status
-        const validStatuses = [
-          "PENDING",
-          "CONFIRMED",
-          "PROCESSING",
-          "OUT_FOR_DELIVERY",
-          "DELIVERED",
-          "CANCELLED",
-          "SHIPPED",
-          "RETURNED",
-        ];
-        if (!validStatuses.includes(statusToUpdate)) {
-          return NextResponse.json(
-            { error: "Invalid status" },
-            { status: 400 },
-          );
+      if (statusToUpdate || body.notes !== undefined || body.shippingAddress !== undefined || body.shippingMethod !== undefined || body.predictedDeliveryDate !== undefined || body.shippingCost !== undefined || body.distance !== undefined || body.billingAddress !== undefined || body.shipCountry !== undefined || body.shipDivision !== undefined || body.shipDistrict !== undefined || body.shipPostalCode !== undefined || body.billingCountry !== undefined || body.billingDivision !== undefined || body.billingDistrict !== undefined || body.billingPostalCode !== undefined) {
+        const updateData = {};
+
+        if (statusToUpdate) {
+          // Validate status
+          const validStatuses = [
+            "PENDING",
+            "CONFIRMED",
+            "PROCESSING",
+            "OUT_FOR_DELIVERY",
+            "DELIVERED",
+            "CANCELLED",
+            "SHIPPED",
+            "RETURNED",
+          ];
+          if (!validStatuses.includes(statusToUpdate)) {
+            return NextResponse.json(
+              { error: "Invalid status" },
+              { status: 400 },
+            );
+          }
+          updateData.status = statusToUpdate;
         }
+
+        if (body.notes !== undefined) updateData.notes = body.notes;
+        if (body.shippingAddress !== undefined)
+          updateData.shippingAddress = body.shippingAddress;
+        if (body.billingAddress !== undefined)
+          updateData.billingAddress = body.billingAddress;
+        if (body.shippingMethod !== undefined)
+          updateData.shippingMethod = body.shippingMethod;
+        if (body.distance !== undefined)
+          updateData.distance = parseFloat(body.distance) || null;
+        if (body.shippingCost !== undefined)
+          updateData.shippingCost = parseFloat(body.shippingCost) || 0;
+        if (body.predictedDeliveryDate !== undefined) {
+          updateData.predictedDeliveryDate = body.predictedDeliveryDate
+            ? new Date(body.predictedDeliveryDate)
+            : null;
+        }
+
+        // Structured shipping address
+        if (body.shipCountry !== undefined)
+          updateData.shipCountry = body.shipCountry || null;
+        if (body.shipDivision !== undefined)
+          updateData.shipDivision = body.shipDivision || null;
+        if (body.shipDistrict !== undefined)
+          updateData.shipDistrict = body.shipDistrict || null;
+        if (body.shipPostalCode !== undefined)
+          updateData.shipPostalCode = body.shipPostalCode || null;
+
+        // Structured billing address
+        if (body.billingCountry !== undefined)
+          updateData.billingCountry = body.billingCountry || null;
+        if (body.billingDivision !== undefined)
+          updateData.billingDivision = body.billingDivision || null;
+        if (body.billingDistrict !== undefined)
+          updateData.billingDistrict = body.billingDistrict || null;
+        if (body.billingPostalCode !== undefined)
+          updateData.billingPostalCode = body.billingPostalCode || null;
 
         await prisma.order.update({
           where: { id: orderId },
-          data: { status: statusToUpdate },
+          data: updateData,
         });
 
         return NextResponse.json({
-          message: "Order status updated successfully",
+          message: "Order updated successfully",
         });
       }
     }
@@ -540,9 +640,9 @@ export async function PUT(request) {
 
       case "deliver":
         // Only seller or admin can mark as delivered
-        if (!isSellerRole && !isAdmin) {
+        if (!isBuyer && !isAdmin) {
           return NextResponse.json(
-            { error: "Only seller or admin can mark as delivered" },
+            { error: "Only buyer or admin can mark as delivered" },
             { status: 403 },
           );
         }

@@ -80,17 +80,20 @@ export default function CheckoutPage() {
   const handlePayment = async () => {
     setProcessing(true);
     try {
-      // Build shipping address from user profile
-      const addressParts = [];
-      if (userProfile?.profile?.address) addressParts.push(userProfile.profile.address);
-      if (userProfile?.profile?.city) addressParts.push(userProfile.profile.city);
-      if (userProfile?.profile?.state) addressParts.push(userProfile.profile.state);
-      if (userProfile?.profile?.zipCode) addressParts.push(userProfile.profile.zipCode);
-      if (userProfile?.profile?.country) addressParts.push(userProfile.profile.country);
+      // Build shipping address from user profile (street address only)
+      const p = userProfile?.profile || {};
+      const shippingAddress = p.address || "No address on file";
 
-      const shippingAddress = addressParts.length > 0
-        ? addressParts.join(", ")
-        : "No address on file";
+      const addressFields = {
+        shipCountry: p.country || "",
+        shipDivision: p.division || "",
+        shipDistrict: p.district || "",
+        shipPostalCode: p.postalCode || "",
+        billingCountry: p.country || "",
+        billingDivision: p.division || "",
+        billingDistrict: p.district || "",
+        billingPostalCode: p.postalCode || "",
+      };
 
       // Get buyer coordinates from user profile (placeholder - would need to add lat/lng to profile)
       const buyerLatitude = userProfile?.profile?.latitude || 23.8103; // Default to Dhaka
@@ -109,6 +112,7 @@ export default function CheckoutPage() {
       const orderData = {
         shippingMethod: "standard",
         shippingAddress,
+        ...addressFields,
         buyerLatitude,
         buyerLongitude,
         sellerLatitude,
@@ -130,6 +134,7 @@ export default function CheckoutPage() {
           amount: order.total,
           method: "bkash",
           shippingAddress,
+          ...addressFields,
           transactionId,
           mobileNumber,
         };
@@ -142,6 +147,7 @@ export default function CheckoutPage() {
           amount: order.total,
           method: "cod",
           shippingAddress,
+          ...addressFields,
         };
 
         await paymentService.processPayment(paymentData);
@@ -152,8 +158,8 @@ export default function CheckoutPage() {
       alert("Order placed successfully!");
       router.push("/orders");
     } catch (error) {
-      console.error("Payment error:", error);
-      alert(error.response?.data?.error || "Failed to process order");
+console.error("Payment error:", error);
+      alert(error.data?.error || error.message || "Failed to process order");
     } finally {
       setProcessing(false);
     }
@@ -183,9 +189,8 @@ export default function CheckoutPage() {
   const items = cart.items || [];
   const totalPrice = cart.totalPrice || 0;
   const discount = cart.discount || 0;
-  const tax = totalPrice * 0.1;
   const shippingCost = items.reduce((sum, item) => sum + (item.product?.shippingCostPerUnit || 0) * item.quantity, 0);
-  const total = totalPrice + tax + shippingCost - discount;
+  const total = totalPrice + shippingCost - discount;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -252,10 +257,6 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Shipping</span>
                   <span>${shippingCost?.toFixed(2)} (per item)</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Tax (10%)</span>
-                  <span>${tax?.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                   <span>Total</span>
@@ -368,7 +369,7 @@ export default function CheckoutPage() {
                 disabled={processing}
               >
                 {paymentMethod === "bkash" 
-                  ? `Pay $${total?.toFixed(2)} via Bkash` 
+                  ? `Pay Tk.${total?.toFixed(2)} via Bkash` 
                   : "Place Order (Cash on Delivery)"}
               </Button>
             </Card>
@@ -383,8 +384,11 @@ export default function CheckoutPage() {
                   <>
                     <p>{userProfile.profile.address}</p>
                     <p>
-                      {userProfile.profile.city}, {userProfile.profile.state}{" "}
-                      {userProfile.profile.zipCode}
+                      {userProfile.profile.district}
+                      {userProfile.profile.division
+                        ? `, ${userProfile.profile.division}`
+                        : ""}{" "}
+                      {userProfile.profile.postalCode}
                     </p>
                     <p>{userProfile.profile.country}</p>
                   </>

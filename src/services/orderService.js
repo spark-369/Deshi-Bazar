@@ -37,6 +37,9 @@ export const orderService = {
     } else {
       if (filters.status) params.status = filters.status;
       if (filters.type) params.type = filters.type;
+      if (filters.division) params.division = filters.division;
+      if (filters.district) params.district = filters.district;
+      if (filters.search) params.search = filters.search;
     }
     const regularData = await api.get("/api/orders", { params });
     return Array.isArray(regularData) ? regularData : regularData.orders || [];
@@ -120,6 +123,9 @@ export const orderService = {
         // Pass type parameter - API will handle filtering by authenticated user
         params.type = filters.type;
       }
+      if (filters.division) params.division = filters.division;
+      if (filters.district) params.district = filters.district;
+      if (filters.search) params.search = filters.search;
     }
     const data = await api.get("/api/custom-orders", { params });
     return data;
@@ -130,7 +136,7 @@ export const orderService = {
       const data = await api.get(`/api/custom-orders/${id}`);
       return data;
     } catch (error) {
-      if (error.response?.status === 404) {
+      if (error.status === 404) {
         return null;
       }
       throw error;
@@ -153,12 +159,21 @@ export const orderService = {
     return result;
   },
 
-  // Verify custom order (update items and set status to VERIFIED)
-  async verifyCustomOrder(id, items, shippingCost) {
+  // Verify custom order (update items and set status)
+  async verifyCustomOrder(id, items, shippingCost, status) {
     const result = await api.put(`/api/custom-orders/${id}`, {
       action: "verify",
       items,
       shippingCost,
+      ...(status ? { status } : {}),
+    });
+    return result;
+  },
+
+  // Auto-price lookup for custom order item
+  async autoPriceItem(orderId, itemName) {
+    const result = await api.patch(`/api/custom-orders/${orderId}/items`, {
+      itemName,
     });
     return result;
   },

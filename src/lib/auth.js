@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-super-secret-jwt-key-change-in-production";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+const TWO_FACTOR_TEMP_EXPIRES_IN = "5m";
 
 // Convert secret to Uint8Array for jose
 const getSecretKey = () => new TextEncoder().encode(JWT_SECRET);
@@ -24,6 +25,28 @@ export async function generateToken(user) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(JWT_EXPIRES_IN)
+    .sign(getSecretKey());
+
+  return token;
+}
+
+/**
+ * Generate a temporary token for 2FA verification
+ * @param {Object} user - User object with id, email, and role
+ * @returns {string} Temporary JWT token
+ */
+export async function generate2FATempToken(user) {
+  const payload = {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    pending2FA: true,
+  };
+
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(TWO_FACTOR_TEMP_EXPIRES_IN)
     .sign(getSecretKey());
 
   return token;
@@ -87,4 +110,22 @@ export async function authenticateToken(token) {
     return null;
   }
   return decoded;
+}
+
+/**
+ * Generate a 6-digit 2FA code
+ * @returns {string} 6-digit code
+ */
+export function generate2FACode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+/**
+ * Generate a cryptographically secure password reset token
+ * @returns {string} Random hex token
+ */
+export function generateResetToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }

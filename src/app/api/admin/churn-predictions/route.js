@@ -29,11 +29,21 @@ export async function GET(request) {
     const riskLevel = searchParams.get("riskLevel");
     const minScore = parseFloat(searchParams.get("minScore"));
     const maxScore = parseFloat(searchParams.get("maxScore"));
-    const userId = searchParams.get("userId");
+    const email = searchParams.get("email");
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 20;
     const sortBy = searchParams.get("sortBy") || "churnScore";
     const sortOrder = searchParams.get("sortOrder") || "desc";
+
+    // Resolve email to userId if provided
+    let userId = null;
+    if (email) {
+      const matchedUser = await prisma.user.findFirst({
+        where: { email: { contains: email, mode: "insensitive" } },
+        select: { id: true },
+      });
+      userId = matchedUser?.id || "__no_match__";
+    }
 
     // Build where clause
     const where = {};

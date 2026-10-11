@@ -28,6 +28,7 @@ export default function EditProductPage() {
     categoryId: '',
     isNegotiable: false,
     estimatedDeliveryDays: '',
+    shippingCostPerUnit: '',
     tags: '',
     // Grocery-specific fields
     productType: 'REGULAR',
@@ -75,6 +76,7 @@ export default function EditProductPage() {
           categoryId: productData.categoryId || '',
           isNegotiable: productData.isNegotiable || false,
           estimatedDeliveryDays: productData.estimatedDeliveryDays?.toString() || '',
+          shippingCostPerUnit: productData.shippingCostPerUnit?.toString() || '',
           tags: Array.isArray(productData.tags) ? productData.tags.join(', ') : (typeof productData.tags === 'object' ? Object.values(productData.tags).join(', ') : (productData.tags || '')),
           productType: productData.productType || 'REGULAR',
           unit: productData.unit || '',
@@ -225,7 +227,7 @@ export default function EditProductPage() {
       router.push('/seller/products');
     } catch (error) {
       console.error('Error updating product:', error);
-      alert(error.response?.data?.error || 'Failed to update product');
+      alert(error.data?.error || error.message || 'Failed to update product');
     } finally {
       setSubmitting(false);
     }

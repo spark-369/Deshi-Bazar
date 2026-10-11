@@ -6,4 +6,5 @@ export { orderService, offerService } from './orderService';
 export { paymentService } from './paymentService';
 export { default as adminService } from './adminService';
 export { default as recommendationService } from './recommendationService';
+export { default as locationService } from './locationService';
 export { default as statsService } from './statsService';

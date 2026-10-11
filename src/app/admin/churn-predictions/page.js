@@ -13,6 +13,18 @@ import {
   FaFilter,
   FaArrowLeft,
   FaDownload,
+  FaChevronLeft,
+  FaChevronRight,
+  FaTimes,
+  FaUser,
+  FaUserShield,
+  FaStore,
+  FaEnvelope,
+  FaPhone,
+  FaCheckCircle,
+  FaShieldAlt,
+  FaCalendarAlt,
+  FaMapMarkerAlt,
 } from 'react-icons/fa';
 import {
   BarChart,
@@ -44,35 +56,60 @@ export default function ChurnPredictionsPage() {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [predictions, setPredictions] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 0 });
+  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 0, limit: 20 });
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     riskLevel: '',
     minScore: '',
     maxScore: '',
-    userId: '',
+    email: '',
     sortBy: 'churnScore',
     sortOrder: 'desc',
   });
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userDetail, setUserDetail] = useState(null);
+  const [userDetailLoading, setUserDetailLoading] = useState(false);
+
+  const openUserModal = async (userId) => {
+    setShowUserModal(true);
+    setUserDetail(null);
+    setUserDetailLoading(true);
+    try {
+      const data = await adminService.getUser(userId);
+      setUserDetail(data.user || null);
+    } catch (error) {
+      console.error('Error fetching user detail:', error);
+      setUserDetail(null);
+    } finally {
+      setUserDetailLoading(false);
+    }
+  };
+
+  const closeUserModal = () => {
+    setShowUserModal(false);
+    setUserDetail(null);
+  };
 
   useEffect(() => {
     if (isAuthenticated && user?.role === "ADMIN") {
       fetchPredictions();
     }
-  }, [isAuthenticated, user, filters]);
+  }, [isAuthenticated, user, filters.riskLevel, filters.minScore, filters.maxScore, filters.email, filters.sortBy, filters.sortOrder, pagination.page]);
 
   const fetchPredictions = async () => {
     try {
       setLoading(true);
       const params = { ...filters };
       if (!params.riskLevel) delete params.riskLevel;
-      if (!params.userId) delete params.userId;
+      if (!params.email) delete params.email;
       if (!params.minScore) delete params.minScore;
       if (!params.maxScore) delete params.maxScore;
+      if (!params.sortBy) delete params.sortBy;
+      if (!params.sortOrder) delete params.sortOrder;
 
       const data = await adminService.getChurnPredictions(params);
       setPredictions(data.predictions || []);
-      setPagination(data.pagination || { page: 1, total: 0, totalPages: 0 });
+      setPagination(data.pagination || { page: 1, total: 0, totalPages: 0, limit: 20 });
     } catch (error) {
       console.error('Churn predictions error:', error);
     } finally {
@@ -82,6 +119,7 @@ export default function ChurnPredictionsPage() {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
   const applyFilters = () => {
@@ -93,7 +131,7 @@ export default function ChurnPredictionsPage() {
       riskLevel: '',
       minScore: '',
       maxScore: '',
-      userId: '',
+      email: '',
       sortBy: 'churnScore',
       sortOrder: 'desc',
     });
@@ -102,12 +140,12 @@ export default function ChurnPredictionsPage() {
   const downloadCSV = () => {
     const headers = ['User ID', 'Name', 'Email', 'Churn Score', 'Risk Level', 'Predicted Date'];
     const rows = predictions.map(p => [
-      p.user.id,
-      p.user.name,
-      p.user.email,
+      p.user?.id || '',
+      p.user?.name || '',
+      p.user?.email || '',
       p.churnScore?.toFixed(4) || '0',
       p.riskLevel,
-      new Date(p.predictedAt).toLocaleDateString(),
+      p.predictedAt ? new Date(p.predictedAt).toLocaleDateString() : '',
     ]);
 
     const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -119,7 +157,7 @@ export default function ChurnPredictionsPage() {
     a.click();
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -131,7 +169,6 @@ export default function ChurnPredictionsPage() {
     return null;
   }
 
-  // Calculate risk distribution for chart
   const riskDistribution = predictions.reduce((acc, p) => {
     acc[p.riskLevel] = (acc[p.riskLevel] || 0) + 1;
     return acc;
@@ -143,68 +180,129 @@ export default function ChurnPredictionsPage() {
     color: RISK_COLORS[name] || '#6B7280',
   }));
 
-  // Get high risk users
   const highRiskUsers = predictions.filter(p => p.riskLevel === 'HIGH');
   const mediumRiskUsers = predictions.filter(p => p.riskLevel === 'MEDIUM');
   const lowRiskUsers = predictions.filter(p => p.riskLevel === 'LOW');
 
+  const startItem = (pagination.page - 1) * pagination.limit + 1;
+  const endItem = Math.min(pagination.page * pagination.limit, pagination.total);
+
+  const renderPredictionCard = (prediction) => (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-3 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm sm:text-base font-semibold text-gray-900 truncate">
+            {prediction.user?.name || 'Unknown'}
+          </p>
+          <p className="text-xs text-gray-500 truncate">{prediction.user?.email}</p>
+          <p className="text-xs text-gray-400">ID: {prediction.user?.id?.substring(0, 8)}...</p>
+        </div>
+        <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${RISK_BADGES[prediction.riskLevel] || 'bg-gray-100 text-gray-700'}`}>
+          {prediction.riskLevel}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Churn Score</p>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 w-full bg-gray-200 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full ${
+                  prediction.churnScore > 0.7 ? 'bg-red-500' :
+                  prediction.churnScore > 0.4 ? 'bg-yellow-500' :
+                  'bg-green-500'
+                }`}
+                style={{ width: `${prediction.churnScore * 100}%` }}
+              ></div>
+            </div>
+            <span className="text-sm font-medium whitespace-nowrap">
+              {(prediction.churnScore * 100).toFixed(1)}%
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-500">Predicted</span>
+          <span className="text-gray-900 font-medium">
+            {prediction.predictedAt ? new Date(prediction.predictedAt).toLocaleDateString() : 'N/A'}
+          </span>
+        </div>
+      </div>
+
+      <div className="pt-2 border-t border-gray-100">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => openUserModal(prediction.user?.id)}
+          className="w-full"
+        >
+          View User
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Button
               variant="outline"
               onClick={() => router.push('/admin')}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 text-sm"
             >
-              <FaArrowLeft />
-              Back to Dashboard
+              <FaArrowLeft /> Back to Dashboard
             </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Churn Predictions</h1>
-              <p className="text-gray-600 mt-1">AI-powered customer churn risk analysis</p>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">
+                Churn Predictions
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
+                AI-powered customer churn risk analysis
+              </p>
             </div>
           </div>
-          <Button onClick={downloadCSV} className="flex items-center gap-2">
-            <FaDownload />
-            Export CSV
-          </Button>
+          <div className="flex flex-col xs:flex-row gap-2 w-full">
+            <Button onClick={downloadCSV} className="flex items-center justify-center gap-2 w-full xs:w-auto text-sm">
+              <FaDownload /> Export CSV
+            </Button>
+          </div>
         </div>
 
         {/* Risk Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="p-6 border-l-4 border-l-red-500">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+          <Card className="p-3 sm:p-4 lg:p-6 border-l-4 border-l-red-500">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 font-medium">High Risk</p>
-                <p className="text-3xl font-bold text-red-600">{highRiskUsers.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Immediate attention needed</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600 font-medium truncate">High Risk</p>
+                <p className="text-lg sm:text-xl lg:text-3xl font-bold text-red-600">{highRiskUsers.length}</p>
+                <p className="text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">Immediate attention needed</p>
               </div>
-              <FaExclamationTriangle className="text-red-500 text-3xl" />
+              <FaExclamationTriangle className="text-red-500 text-lg sm:text-xl lg:text-3xl flex-shrink-0" />
             </div>
           </Card>
 
-          <Card className="p-6 border-l-4 border-l-yellow-500">
+          <Card className="p-3 sm:p-4 lg:p-6 border-l-4 border-l-yellow-500">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 font-medium">Medium Risk</p>
-                <p className="text-3xl font-bold text-yellow-600">{mediumRiskUsers.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Monitor closely</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600 font-medium truncate">Medium Risk</p>
+                <p className="text-lg sm:text-xl lg:text-3xl font-bold text-yellow-600">{mediumRiskUsers.length}</p>
+                <p className="text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">Monitor closely</p>
               </div>
-              <FaExclamationTriangle className="text-yellow-500 text-3xl" />
+              <FaExclamationTriangle className="text-yellow-500 text-lg sm:text-xl lg:text-3xl flex-shrink-0" />
             </div>
           </Card>
 
-          <Card className="p-6 border-l-4 border-l-green-500">
+          <Card className="p-3 sm:p-4 lg:p-6 border-l-4 border-l-green-500">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 font-medium">Low Risk</p>
-                <p className="text-3xl font-bold text-green-600">{lowRiskUsers.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Stable customers</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600 font-medium truncate">Low Risk</p>
+                <p className="text-lg sm:text-xl lg:text-3xl font-bold text-green-600">{lowRiskUsers.length}</p>
+                <p className="text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">Stable customers</p>
               </div>
-              <FaCheck className="text-green-500 text-3xl" />
+              <FaCheck className="text-green-500 text-lg sm:text-xl lg:text-3xl flex-shrink-0" />
             </div>
           </Card>
         </div>
@@ -213,10 +311,10 @@ export default function ChurnPredictionsPage() {
         {riskChartData.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Risk Distribution</CardTitle>
+              <CardTitle className="text-base sm:text-lg lg:text-xl">Risk Distribution</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-64 sm:h-72 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -225,7 +323,7 @@ export default function ChurnPredictionsPage() {
                       cy="50%"
                       labelLine={false}
                       label={(entry) => `${entry.name}: ${entry.value}`}
-                      outerRadius={100}
+                      outerRadius={70}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -245,19 +343,18 @@ export default function ChurnPredictionsPage() {
         {/* Filters */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FaFilter />
-              Filters
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <FaFilter /> Filters
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Risk Level</label>
                 <select
                   value={filters.riskLevel}
                   onChange={(e) => handleFilterChange('riskLevel', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
                   <option value="">All Levels</option>
                   <option value="HIGH">High</option>
@@ -293,12 +390,12 @@ export default function ChurnPredictionsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <Input
                   type="text"
-                  placeholder="Search by user ID"
-                  value={filters.userId}
-                  onChange={(e) => handleFilterChange('userId', e.target.value)}
+                  placeholder="Search by email"
+                  value={filters.email}
+                  onChange={(e) => handleFilterChange('email', e.target.value)}
                 />
               </div>
 
@@ -308,7 +405,7 @@ export default function ChurnPredictionsPage() {
                   <select
                     value={filters.sortBy}
                     onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   >
                     <option value="churnScore">Churn Score</option>
                     <option value="predictedAt">Date</option>
@@ -317,7 +414,7 @@ export default function ChurnPredictionsPage() {
                   <select
                     value={filters.sortOrder}
                     onChange={(e) => handleFilterChange('sortOrder', e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   >
                     <option value="desc">Desc</option>
                     <option value="asc">Asc</option>
@@ -326,86 +423,107 @@ export default function ChurnPredictionsPage() {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-4">
-              <Button onClick={applyFilters} className="flex items-center gap-2">
-                <FaSearch />
-                Apply Filters
+            <div className="flex flex-col xs:flex-row gap-2 mt-4 w-full xs:w-auto">
+              <Button onClick={applyFilters} className="flex items-center justify-center gap-2 w-full xs:w-auto text-sm">
+                <FaSearch /> Apply Filters
               </Button>
-              <Button variant="outline" onClick={resetFilters}>
+              <Button variant="outline" onClick={resetFilters} className="w-full xs:w-auto text-sm">
                 Reset
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Predictions Table */}
+        {/* Predictions Table / Cards */}
         <Card>
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="text-base sm:text-lg">
               Churn Predictions ({pagination.total} total)
             </CardTitle>
           </CardHeader>
           <CardContent>
             {predictions.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
-                <FaUsers className="text-4xl mx-auto mb-3 opacity-50" />
-                <p>No churn predictions found</p>
+                <FaUsers className="text-3xl sm:text-4xl mx-auto mb-3 opacity-50" />
+                <p className="text-sm sm:text-base">No churn predictions found</p>
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                {/* Mobile Cards */}
+                <div className="md:hidden space-y-3">
+                  {predictions.map((prediction) => (
+                    <div key={prediction.id}>{renderPredictionCard(prediction)}</div>
+                  ))}
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Churn Score</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Risk Level</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Predicted</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          User
+                        </th>
+                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Churn Score
+                        </th>
+                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Risk Level
+                        </th>
+                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Predicted
+                        </th>
+                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {predictions.map((prediction) => (
                         <tr key={prediction.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-gray-900">{prediction.user.name}</p>
-                              <p className="text-sm text-gray-500">{prediction.user.email}</p>
-                              <p className="text-xs text-gray-400">ID: {prediction.user.id.substring(0, 8)}...</p>
+                          <td className="px-4 lg:px-6 py-4">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate max-w-[150px] lg:max-w-[200px]">
+                                {prediction.user?.name || 'Unknown'}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate max-w-[150px] lg:max-w-[200px]">
+                                {prediction.user?.email}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                ID: {prediction.user?.id?.substring(0, 8)}...
+                              </p>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div className="w-16 sm:w-24 bg-gray-200 rounded-full h-2">
                                 <div
                                   className={`h-2 rounded-full ${
-                                    prediction.churnScore > 0.7
-                                      ? 'bg-red-500'
-                                      : prediction.churnScore > 0.4
-                                        ? 'bg-yellow-500'
-                                        : 'bg-green-500'
+                                    prediction.churnScore > 0.7 ? 'bg-red-500' :
+                                    prediction.churnScore > 0.4 ? 'bg-yellow-500' :
+                                    'bg-green-500'
                                   }`}
                                   style={{ width: `${prediction.churnScore * 100}%` }}
                                 ></div>
                               </div>
-                              <span className="font-medium">
+                              <span className="text-sm font-medium whitespace-nowrap">
                                 {(prediction.churnScore * 100).toFixed(1)}%
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${RISK_BADGES[prediction.riskLevel] || 'bg-gray-100 text-gray-700'}`}>
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${RISK_BADGES[prediction.riskLevel] || 'bg-gray-100 text-gray-700'}`}>
                               {prediction.riskLevel}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-500">
-                            {new Date(prediction.predictedAt).toLocaleDateString()}
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {prediction.predictedAt ? new Date(prediction.predictedAt).toLocaleDateString() : 'N/A'}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => router.push(`/admin/users/${prediction.user.id}`)}
+                              onClick={() => openUserModal(prediction.user?.id)}
                             >
                               View User
                             </Button>
@@ -418,26 +536,30 @@ export default function ChurnPredictionsPage() {
 
                 {/* Pagination */}
                 {pagination.totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-6">
-                    <p className="text-sm text-gray-600">
-                      Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} predictions
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-t">
+                    <p className="text-xs sm:text-sm text-gray-600 text-center sm:text-left truncate">
+                      Showing {startItem} to {endItem} of {pagination.total} predictions
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full sm:w-auto">
                       <Button
                         variant="outline"
                         size="sm"
                         disabled={pagination.page <= 1}
-                        onClick={() => handleFilterChange('page', pagination.page - 1)}
+                        onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                        className="flex-1 sm:flex-none justify-center"
                       >
+                        <FaChevronLeft className="mr-1" />
                         Previous
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         disabled={pagination.page >= pagination.totalPages}
-                        onClick={() => handleFilterChange('page', pagination.page + 1)}
+                        onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                        className="flex-1 sm:flex-none justify-center"
                       >
                         Next
+                        <FaChevronRight className="ml-1" />
                       </Button>
                     </div>
                   </div>
@@ -451,33 +573,34 @@ export default function ChurnPredictionsPage() {
         {highRiskUsers.length > 0 && (
           <Card className="border-l-4 border-l-red-500">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-600">
+              <CardTitle className="flex items-center gap-2 text-red-600 text-base sm:text-lg">
                 <FaExclamationTriangle />
                 High Risk Customers Alert
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 mb-4">
+              <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
                 {highRiskUsers.length} customer(s) are at high risk of churning. Consider reaching out with retention offers.
               </p>
-              <div className="space-y-2">
+              <div className="space-y-2 sm:space-y-3">
                 {highRiskUsers.slice(0, 5).map((prediction) => (
-                  <div key={prediction.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">{prediction.user.name}</p>
-                      <p className="text-sm text-gray-600">{prediction.user.email}</p>
+                  <div key={prediction.id} className="flex flex-col xs:flex-row xs:items-center justify-between gap-3 p-3 sm:p-4 bg-red-50 rounded-lg">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">{prediction.user?.name}</p>
+                      <p className="text-xs text-gray-600 truncate">{prediction.user?.email}</p>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Churn Score</p>
-                        <p className="text-lg font-bold text-red-600">
+                    <div className="flex items-center gap-3 xs:gap-4">
+                      <div className="text-left xs:text-right">
+                        <p className="text-xs text-gray-600">Churn Score</p>
+                        <p className="text-base sm:text-lg font-bold text-red-600">
                           {(prediction.churnScore * 100).toFixed(1)}%
                         </p>
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => router.push(`/admin/users/${prediction.user.id}`)}
+                        onClick={() => openUserModal(prediction.user?.id)}
+                        className="w-full xs:w-auto"
                       >
                         View
                       </Button>
@@ -488,7 +611,210 @@ export default function ChurnPredictionsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* User Detail Modal */}
+        {showUserModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 sticky top-0 bg-white z-10">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                  User Details
+                </h3>
+                <button
+                  onClick={closeUserModal}
+                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Close"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+
+              {userDetailLoading ? (
+                <div className="flex items-center justify-center p-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                </div>
+              ) : userDetail ? (
+                <div className="p-4 sm:p-6 space-y-5">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl text-blue-600 flex-shrink-0">
+                      {userDetail.role === 'ADMIN' ? (
+                        <FaUserShield />
+                      ) : userDetail.role === 'SELLER' ? (
+                        <FaStore />
+                      ) : (
+                        <FaUser />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-base sm:text-lg font-bold text-gray-900 truncate">
+                        {userDetail.name || 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-500 truncate">
+                        {userDetail.email}
+                      </p>
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        {userDetail.role}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2">
+                      <FaEnvelope className="text-gray-400" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-500">Email</p>
+                        <p className="text-sm font-medium break-all">
+                          {userDetail.email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FaPhone className="text-gray-400" />
+                      <div>
+                        <p className="text-xs text-gray-500">Phone</p>
+                        <p className="text-sm font-medium">
+                          {userDetail.phone || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FaCheckCircle className="text-gray-400" />
+                      <div>
+                        <p className="text-xs text-gray-500">Verified</p>
+                        <p className="text-sm font-medium">
+                          {userDetail.isVerified ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FaShieldAlt className="text-gray-400" />
+                      <div>
+                        <p className="text-xs text-gray-500">Two-Factor Auth</p>
+                        <p className="text-sm font-medium">
+                          {userDetail.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FaCalendarAlt className="text-gray-400" />
+                      <div>
+                        <p className="text-xs text-gray-500">Joined</p>
+                        <p className="text-sm font-medium">
+                          {new Date(userDetail.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FaMapMarkerAlt className="text-gray-400" />
+                      <div>
+                        <p className="text-xs text-gray-500">Location</p>
+                        <p className="text-sm font-medium">
+                          {userDetail.profile?.division ||
+                            userDetail.profile?.district ||
+                            userDetail.profile?.city ||
+                            'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {userDetail.churnPrediction && (
+                    <div className="border-t pt-4">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <FaExclamationTriangle className="text-yellow-600" />
+                        Churn Prediction
+                      </h4>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                            RISK_BADGES[userDetail.churnPrediction.riskLevel] ||
+                            'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {userDetail.churnPrediction.riskLevel} Risk
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          Score:{' '}
+                          <strong
+                            style={{
+                              color:
+                                RISK_COLORS[
+                                  userDetail.churnPrediction.riskLevel
+                                ] || '#1e293b',
+                            }}
+                          >
+                            {(
+                              userDetail.churnPrediction.churnScore * 100
+                            ).toFixed(1)}
+                            %
+                          </strong>
+                        </span>
+                      </div>
+                      {userDetail.churnPrediction.factors &&
+                        userDetail.churnPrediction.factors.length > 0 && (
+                          <ul className="mt-3 space-y-1">
+                            {userDetail.churnPrediction.factors.map(
+                              (factor, i) => (
+                                <li
+                                  key={i}
+                                  className="text-sm text-gray-700 flex items-center gap-2"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 flex-shrink-0" />
+                                  {factor}
+                                </li>
+                              ),
+                            )}
+                          </ul>
+                        )}
+                    </div>
+                  )}
+
+                  <div className="border-t pt-4">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                      Statistics
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Total Spent</p>
+                        <p className="text-sm font-bold text-green-600">
+                          Tk.{(userDetail.profile?.totalSpent || 0).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Purchases</p>
+                        <p className="text-sm font-bold">
+                          {userDetail.profile?.purchaseCount || 0}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Orders</p>
+                        <p className="text-sm font-bold">
+                          {userDetail._count?.orders || 0}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Reviews</p>
+                        <p className="text-sm font-bold">
+                          {userDetail._count?.reviews || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-12 text-center text-gray-500">
+                  Failed to load user details.
+                </div>
+              )}
+
+              <div className="p-4 sm:p-5 border-t border-gray-100 flex justify-end">
+                <Button onClick={closeUserModal}>Close</Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

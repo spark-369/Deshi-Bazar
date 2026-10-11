@@ -8,10 +8,10 @@ const recommendationService = {
   },
 
   // Generate AI recommendations for a user (admin only)
-  async generateAIRecommendations(userId) {
+  async generateAIRecommendations(email) {
     const result = await api.post("/api/recommendations", {
       generateAI: true,
-      userId,
+      email,
     });
     return result;
   },

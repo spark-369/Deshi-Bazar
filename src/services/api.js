@@ -49,9 +49,11 @@ const getHeaders = (extraHeaders = {}) => {
     ...extraHeaders,
   };
   
-  const token = getToken();
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  if (!headers.Authorization) {
+    const token = getToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
   }
   
   return headers;
@@ -87,12 +89,13 @@ const buildQueryString = (params) => {
 // Simple fetch-based API wrapper
 export const api = {
   get: (url, config = {}) => {
-    const queryString = buildQueryString(config.params);
+    const { params, headers: configHeaders, ...rest } = config;
+    const queryString = buildQueryString(params);
     const finalUrl = queryString ? `${url}${queryString}` : url;
     return fetch(`${API_URL}${finalUrl}`, {
       method: 'GET',
-      headers: getHeaders(config.headers),
-      ...config,
+      headers: getHeaders(configHeaders),
+      ...rest,
     }).then(handleResponse);
   },
   

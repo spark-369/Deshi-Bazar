@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyToken, extractToken } from "@/lib/auth";
-import { generateRecommendations } from "@/lib/ai";
 
 // GET /api/users/profile - Get current user's profile
 export async function GET(request) {
   try {
     const authHeader = request.headers.get("authorization");
-    console.log(request.url);
     const token = extractToken(authHeader);
 
     if (!token) {
-      return NextsResponse.json(
+      return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 },
       );
@@ -36,12 +34,38 @@ export async function GET(request) {
         role: true,
         isVerified: true,
         createdAt: true,
+        twoFactorEnabled: true,
       },
     });
 
+    const [orderCount, customOrderCount, wishlistCount, reviewCount, regularTotal, customTotal] = await Promise.all([
+      prisma.order.count({ where: { userId: user.id } }),
+      prisma.customOrder.count({ where: { userId: user.id } }),
+      prisma.wishlist.count({ where: { userId: user.id } }),
+      prisma.review.count({ where: { userId: user.id } }),
+      prisma.order.aggregate({
+        where: { userId: user.id, status: { not: "CANCELLED" } },
+        _sum: { total: true },
+      }),
+      prisma.customOrder.aggregate({
+        where: { userId: user.id, status: { not: "CANCELLED" } },
+        _sum: { total: true },
+      }),
+    ]);
+
+    const stats = {
+      orders: orderCount + customOrderCount,
+      wishlist: wishlistCount,
+      reviews: reviewCount,
+      totalSpent: (regularTotal._sum.total || 0) + (customTotal._sum.total || 0),
+    };
+
     return NextResponse.json({
       ...userData,
-      profile,
+      profile: {
+        ...profile,
+        ...stats,
+      },
     });
   } catch (error) {
     console.error("Get profile error:", error);
@@ -73,6 +97,7 @@ export async function PUT(request) {
     const body = await request.json();
     const {
       name,
+      email,
       phone,
       bio,
       avatar,
@@ -80,7 +105,10 @@ export async function PUT(request) {
       address,
       city,
       state,
+      division,
+      district,
       zipCode,
+      postalCode,
       country,
       action,
       currentPassword,
@@ -128,11 +156,22 @@ export async function PUT(request) {
     }
 
     // Update user basic info
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: decodedUser.id },
       data: {
         name,
+        email,
         phone,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        isVerified: true,
+        createdAt: true,
+        twoFactorEnabled: true,
       },
     });
 
@@ -146,7 +185,10 @@ export async function PUT(request) {
         address,
         city,
         state,
+        division,
+        district,
         zipCode,
+        postalCode,
         country,
       },
       create: {
@@ -157,7 +199,10 @@ export async function PUT(request) {
         address,
         city,
         state,
+        division,
+        district,
         zipCode,
+        postalCode,
         country,
         interests: [],
         browsingHistory: [],
@@ -166,104 +211,39 @@ export async function PUT(request) {
       },
     });
 
-    return NextResponse.json(profile);
+    const [orderCount, customOrderCount, wishlistCount, reviewCount, regularTotal, customTotal] = await Promise.all([
+      prisma.order.count({ where: { userId: decodedUser.id } }),
+      prisma.customOrder.count({ where: { userId: decodedUser.id } }),
+      prisma.wishlist.count({ where: { userId: decodedUser.id } }),
+      prisma.review.count({ where: { userId: decodedUser.id } }),
+      prisma.order.aggregate({
+        where: { userId: decodedUser.id, status: { not: "CANCELLED" } },
+        _sum: { total: true },
+      }),
+      prisma.customOrder.aggregate({
+        where: { userId: decodedUser.id, status: { not: "CANCELLED" } },
+        _sum: { total: true },
+      }),
+    ]);
+
+    const stats = {
+      orders: orderCount + customOrderCount,
+      wishlist: wishlistCount,
+      reviews: reviewCount,
+      totalSpent: (regularTotal._sum.total || 0) + (customTotal._sum.total || 0),
+    };
+
+    return NextResponse.json({
+      ...updatedUser,
+      profile: {
+        ...profile,
+        ...stats,
+      },
+    });
   } catch (error) {
     console.error("Update profile error:", error);
     return NextResponse.json(
       { error: "Failed to update profile" },
-      { status: 500 },
-    );
-  }
-}
-
-// GET /api/users/profile/recommendations - Get personalized recommendations
-export async function recommendations(request) {
-  try {
-    const authHeader = request.headers.get("authorization");
-    const token = extractToken(authHeader);
-
-    if (!token) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    // Get user profile with browsing history
-    const profile = await prisma.userProfile.findUnique({
-      where: { userId: user.id },
-    });
-
-    const browsingHistory = profile?.browsingHistory || [];
-
-    // Get viewed products
-    let viewedProducts = [];
-    if (browsingHistory.length > 0) {
-      viewedProducts = await prisma.product.findMany({
-        where: {
-          id: { in: browsingHistory },
-          status: "ACTIVE",
-        },
-        select: {
-          id: true,
-          name: true,
-          description: true,
-        },
-      });
-    }
-
-    // Get all products for recommendations
-    const allProducts = await prisma.product.findMany({
-      where: {
-        status: "ACTIVE",
-        sellerId: { not: user.id }, // Exclude own products
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        price: true,
-        images: true,
-      },
-    });
-
-    // Generate AI recommendations
-    const recommendations = await generateRecommendations(
-      user.id,
-      viewedProducts,
-      allProducts,
-    );
-
-    // Get full product details for recommendations
-    const recommendedProducts = await Promise.all(
-      recommendations.slice(0, 10).map(async (rec) => {
-        return prisma.product.findUnique({
-          where: { id: rec.productId },
-          include: {
-            category: true,
-            seller: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        });
-      }),
-    );
-
-    return NextResponse.json({
-      recommendations: recommendedProducts.filter(Boolean),
-    });
-  } catch (error) {
-    console.error("Get recommendations error:", error);
-    return NextResponse.json(
-      { error: "Failed to get recommendations" },
       { status: 500 },
     );
   }

@@ -65,33 +65,89 @@ export async function GET(request) {
       prisma.user.count({ where }),
     ]);
 
-    // Get churn predictions for high-value users
-    const usersWithChurn = await Promise.all(
-      users.map(async (u) => {
-        let churnPrediction = null;
+    // Return users immediately without blocking churn predictions
+    const usersWithChurn = users.map((u) => ({
+      ...u,
+      churnPrediction: null,
+    }));
 
-        // Only predict for buyers with significant history
-        if (u.role === "BUYER" && u.profile?.purchaseCount > 0) {
-          const daysSinceLastActivity = u.profile?.lastPurchaseDate
-            ? Math.floor(
-                (Date.now() - new Date(u.profile.lastPurchaseDate).getTime()) /
-                  (1000 * 60 * 60 * 24),
-              )
+    // Background churn predictions (non-blocking)
+    setImmediate(async () => {
+      try {
+        for (const u of users) {
+          if (u.role !== "BUYER" || !u.profile?.purchaseCount) continue;
+
+          // Compute real behavioral signals from order history
+          const orders = await prisma.order.findMany({
+            where: { userId: u.id },
+            select: { createdAt: true },
+            orderBy: { createdAt: "asc" },
+          });
+
+          const now = Date.now();
+          const lastPurchaseDate = u.profile.lastPurchaseDate
+            ? new Date(u.profile.lastPurchaseDate)
+            : null;
+          const daysSinceLastActivity = lastPurchaseDate
+            ? Math.floor((now - lastPurchaseDate.getTime()) / (1000 * 60 * 60 * 24))
             : 999;
 
-          churnPrediction = await predictChurn({
+          // Derive purchase frequency trend from order date gaps
+          let purchaseFrequencyTrend = "stable";
+          if (orders.length >= 2) {
+            const gaps = [];
+            for (let i = 1; i < orders.length; i++) {
+              gaps.push(
+                (new Date(orders[i].createdAt).getTime() -
+                  new Date(orders[i - 1].createdAt).getTime()) /
+                  (1000 * 60 * 60 * 24),
+              );
+            }
+            const firstHalf = gaps.slice(0, Math.floor(gaps.length / 2));
+            const secondHalf = gaps.slice(Math.floor(gaps.length / 2));
+            const avg = (arr) => arr.reduce((s, g) => s + g, 0) / (arr.length || 1);
+            const early = avg(firstHalf);
+            const late = avg(secondHalf);
+            if (late > early * 1.3) purchaseFrequencyTrend = "declining";
+            else if (late < early * 0.7) purchaseFrequencyTrend = "increasing";
+          }
+
+          // Approximate engagement from account age vs purchase count
+          const accountAgeDays = Math.max(
+            1,
+            Math.floor((now - new Date(u.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+          );
+          const avgSessionTime = Math.min(
+            600,
+            (u.profile.purchaseCount / accountAgeDays) * 600,
+          );
+
+          const prediction = await predictChurn({
             daysSinceLastActivity,
-            purchaseFrequencyTrend: "stable",
-            avgSessionTime: 300,
+            purchaseFrequencyTrend,
+            avgSessionTime,
+          });
+
+          // Persist the prediction so /admin/churn-predictions can read it
+          await prisma.churnPrediction.upsert({
+            where: { userId: u.id },
+            create: {
+              userId: u.id,
+              churnScore: prediction.churnScore,
+              riskLevel: prediction.riskLevel,
+              factors: prediction.factors,
+            },
+            update: {
+              churnScore: prediction.churnScore,
+              riskLevel: prediction.riskLevel,
+              factors: prediction.factors,
+            },
           });
         }
-
-        return {
-          ...u,
-          churnPrediction,
-        };
-      }),
-    );
+      } catch (e) {
+        console.error("Background churn prediction failed:", e);
+      }
+    });
 
     return NextResponse.json({
       users: usersWithChurn,

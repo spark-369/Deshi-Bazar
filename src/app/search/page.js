@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
@@ -17,7 +17,71 @@ import {
   FaMagic,
 } from "react-icons/fa";
 
-export default function SearchPage() {
+// Lazily load and cache the Whisper transcriber so the ~40MB model is only
+// fetched from the Hugging Face Hub once per session. Runs fully client-side
+// (WASM) — no browser/cloud speech service required.
+let transcriberPromise = null;
+
+async function getTranscriber() {
+  if (!transcriberPromise) {
+    transcriberPromise = (async () => {
+      const { pipeline, env } = await import("@huggingface/transformers");
+      env.allowLocalModels = false;
+      return await pipeline(
+        "automatic-speech-recognition",
+        "Xenova/whisper-base",
+        { dtype: "q8", device: "wasm" },
+      );
+    })();
+  }
+  return transcriberPromise;
+}
+
+// Decode any recorded audio into a 16kHz mono Float32Array (what Whisper expects).
+function resampleTo16kMono(audioBuffer) {
+  const targetSampleRate = 16000;
+
+  let channelData;
+  if (audioBuffer.numberOfChannels > 1) {
+    const left = audioBuffer.getChannelData(0);
+    const right = audioBuffer.getChannelData(1);
+    channelData = new Float32Array(left.length);
+    for (let i = 0; i < left.length; i++) {
+      channelData[i] = (left[i] + right[i]) / 2;
+    }
+  } else {
+    channelData = audioBuffer.getChannelData(0);
+  }
+
+  if (audioBuffer.sampleRate === targetSampleRate) return channelData;
+
+  const ratio = audioBuffer.sampleRate / targetSampleRate;
+  const newLength = Math.round(channelData.length / ratio);
+  const result = new Float32Array(newLength);
+  let offsetResult = 0;
+  let offsetBuffer = 0;
+
+  while (offsetResult < result.length && offsetBuffer < channelData.length) {
+    const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
+    let accum = 0;
+    let count = 0;
+    for (
+      let i = offsetBuffer;
+      i < nextOffsetBuffer && i < channelData.length;
+      i++
+    ) {
+      accum += channelData[i];
+      count++;
+    }
+    result[offsetResult] = accum / count;
+    offsetResult++;
+    offsetBuffer = nextOffsetBuffer;
+  }
+
+  return result;
+}
+
+function SearchPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -36,14 +100,37 @@ export default function SearchPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [aiPowered, setAiPowered] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
+  const [voiceStatus, setVoiceStatus] = useState("");
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    // Load recent searches from localStorage
-    const saved = localStorage.getItem("recentSearches");
-    if (saved) {
-      setRecentSearches(JSON.parse(saved));
+    if (isAuthenticated) {
+      // Recent searches are owned by the backend (SearchHistory table).
+      (async () => {
+        try {
+          const searches = await productService.getRecentSearches();
+          if (Array.isArray(searches)) setRecentSearches(searches);
+        } catch (error) {
+          console.error("Error loading recent searches:", error);
+        }
+      })();
+    } else {
+      const saved = localStorage.getItem("recentSearches");
+      if (saved) {
+        setRecentSearches(JSON.parse(saved));
+      }
     }
-  }, []);
+  }, [isAuthenticated]);
+
+  const searchQuery = searchParams.get("q") || "";
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setQuery(searchQuery);
+      handleSearch(searchQuery);
+    }
+  }, [searchQuery]);
 
   // Debounced suggestion fetching
   useEffect(() => {
@@ -72,7 +159,12 @@ export default function SearchPage() {
       ...recentSearches.filter((s) => s !== searchQuery),
     ].slice(0, 10);
     setRecentSearches(updated);
-    localStorage.setItem("recentSearches", JSON.stringify(updated));
+
+    // Authenticated users: history is persisted server-side by /api/search.
+    // Anonymous users: fall back to localStorage.
+    if (!isAuthenticated) {
+      localStorage.setItem("recentSearches", JSON.stringify(updated));
+    }
   };
 
   const handleSearch = async (searchQuery = query) => {
@@ -103,6 +195,7 @@ export default function SearchPage() {
   };
 
   const handleSuggestionClick = (suggestion) => {
+    setVoiceError("");
     setQuery(suggestion);
     setSuggestions([]);
     handleSearch(suggestion);
@@ -111,70 +204,168 @@ export default function SearchPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setVoiceError("");
     setSuggestions([]);
     router.push(`/search?q=${encodeURIComponent(query)}`);
     handleSearch();
   };
 
-  const clearRecentSearches = () => {
+  const clearRecentSearches = async () => {
     setRecentSearches([]);
-    localStorage.removeItem("recentSearches");
+
+    if (isAuthenticated) {
+      try {
+        await productService.clearRecentSearches();
+      } catch (error) {
+        console.error("Error clearing recent searches:", error);
+      }
+    } else {
+      localStorage.removeItem("recentSearches");
+    }
   };
 
-  const handleVoiceSearch = () => {
-    if (
-      !("webkitSpeechRecognition" in window) &&
-      !("SpeechRecognition" in window)
-    ) {
-      alert("Voice search is not supported in your browser");
+  const mediaRecorderRef = useRef(null);
+
+  const handleVoiceSearch = async () => {
+    // If we're already recording, stop and let onstop handle transcription.
+    if (isListening) {
+      if (mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          // ignore
+        }
+      }
       return;
     }
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    setVoiceError("");
+    setVoiceStatus("Requesting microphone…");
 
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      setVoiceStatus("");
+      if (err.name === "NotAllowedError" || err.name === "SecurityError") {
+        alert(
+          "Microphone access was denied. Allow microphone permissions and try again.",
+        );
+      } else {
+        setVoiceError(
+          "Could not access microphone: " + (err.message || err.name),
+        );
+      }
+      return;
+    }
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+    setIsListening(true);
+    setVoiceStatus("Listening… (stops automatically when you pause)");
 
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setQuery(transcript);
-      handleSearch(transcript);
-      router.push(`/search?q=${encodeURIComponent(transcript)}`);
+    const mediaRecorder = new MediaRecorder(stream);
+    mediaRecorderRef.current = mediaRecorder;
+
+    const chunks = [];
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
     };
 
-    recognition.start();
-  };
+    // Voice-activity detection: monitor mic volume and auto-stop after a
+    // sustained pause, so recording runs only while the user is speaking.
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioCtx();
+    await audioCtx.resume?.();
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+    const buffer = new Uint8Array(analyser.fftSize);
 
-  const handleAISearch = async () => {
-    if (!query.trim()) return;
+    const SILENCE_MS = 1500;
+    const SILENCE_THRESHOLD = 0.02; // RMS amplitude (0..1)
+    let silenceStart = null;
+    let silenceInterval = null;
 
-    setLoading(true);
-    setAiPowered(true);
-    saveRecentSearch(query);
+    const stopRecording = () => {
+      if (silenceInterval) clearInterval(silenceInterval);
+      silenceInterval = null;
+      try {
+        source.disconnect();
+      } catch (e) {
+        // ignore
+      }
+      if (mediaRecorder.state !== "inactive") mediaRecorder.stop();
+    };
 
-    try {
-      // AI-powered semantic search
-      const { api } = await import("@/services");
-      const response = await api.get("/api/search", {
-        params: {
-          q: query,
-          ai: true,
-          ...filters,
-        },
-      });
-      setSearchResults(response.products || []);
-    } catch (error) {
-      console.error("AI search error:", error);
-      handleSearch();
-    } finally {
-      setLoading(false);
-    }
+    silenceInterval = setInterval(() => {
+      analyser.getByteTimeDomainData(buffer);
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const v = (buffer[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / buffer.length);
+      const now = Date.now();
+
+      if (rms < SILENCE_THRESHOLD) {
+        if (silenceStart === null) silenceStart = now;
+        else if (now - silenceStart > SILENCE_MS) stopRecording();
+      } else {
+        silenceStart = null;
+      }
+    }, 200);
+
+    mediaRecorder.onstop = async () => {
+      if (silenceInterval) clearInterval(silenceInterval);
+      try {
+        await audioCtx.close();
+      } catch (e) {
+        // ignore
+      }
+      stream.getTracks().forEach((t) => t.stop());
+      mediaRecorderRef.current = null;
+
+      try {
+        setVoiceStatus("Preparing voice model…");
+        const transcriber = await getTranscriber();
+
+        setVoiceStatus("Transcribing…");
+        const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
+        const arrayBuffer = await blob.arrayBuffer();
+        const DecodeCtx = window.AudioContext || window.webkitAudioContext;
+        const decodeCtx = new DecodeCtx();
+        const audioBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
+        const audioData = resampleTo16kMono(audioBuffer);
+        await decodeCtx.close().catch(() => {});
+
+        const output = await transcriber(audioData, {
+          language: "english",
+          task: "transcribe",
+        });
+        const transcript = (output?.text || "").trim();
+
+        if (!transcript) {
+          setVoiceError("No speech detected. Please try again.");
+          return;
+        }
+
+        setQuery(transcript);
+        router.push(`/search?q=${encodeURIComponent(transcript)}`);
+        handleSearch(transcript);
+      } catch (err) {
+        console.error("Voice transcription error:", err);
+        setVoiceError(
+          "Voice search failed: " +
+            (err?.message || "unable to transcribe audio") +
+            ". The model downloads from the Hugging Face Hub on first use, so an internet connection is required initially.",
+        );
+      } finally {
+        setIsListening(false);
+        setVoiceStatus("");
+      }
+    };
+
+    mediaRecorder.start();
   };
 
   const renderStars = (rating) => {
@@ -192,70 +383,100 @@ export default function SearchPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-6">
             Search Products
           </h1>
 
           {/* Search Form */}
           <form onSubmit={handleSubmit} className="relative">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <Input
+                  ref={inputRef}
                   type="text"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    setVoiceError("");
+                    setQuery(e.target.value);
+                  }}
                   placeholder="Search for products..."
-                  className="pl-10 pr-4 py-3 text-lg"
+                  className="pl-10 pr-4 py-3 text-lg w-full"
                 />
                 <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
 
                 {/* Suggestions Dropdown */}
                 {suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 z-50">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 z-50 max-h-60 overflow-y-auto">
                     {suggestions.map((suggestion, i) => (
                       <button
                         key={i}
                         type="button"
                         onClick={() => handleSuggestionClick(suggestion)}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-2 touch-manipulation"
                       >
-                        <FaSearch className="text-gray-400 text-xs" />
-                        {suggestion}
+                        <FaSearch className="text-gray-400 text-xs flex-shrink-0" />
+                        <span className="truncate">{suggestion}</span>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
 
-              <Button type="submit" className="px-6">
-                Search
-              </Button>
+              <div className="flex gap-2 sm:w-auto">
+                <Button
+                  type="submit"
+                  className="px-4 sm:px-6 flex-1 sm:flex-none"
+                >
+                  Search
+                </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleVoiceSearch}
-                className="px-4"
-                title="Voice search"
-              >
-                <FaMicrophone
-                  className={isListening ? "text-red-500 animate-pulse" : ""}
-                />
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleVoiceSearch}
+                  className="px-3 sm:px-4"
+                  title="Voice search"
+                >
+                  <FaMicrophone
+                    className={isListening ? "text-red-500 animate-pulse" : ""}
+                  />
+                </Button>
 
-              <Button
-                type="button"
-                variant={aiPowered ? "primary" : "outline"}
-                onClick={handleAISearch}
-                className="px-4 flex items-center gap-2"
-                title="AI-powered search"
-              >
-                <FaMagic />
-                AI Search
-              </Button>
+                <Button
+                  type="button"
+                  variant={aiPowered ? "primary" : "outline"}
+                  onClick={() => handleSearch()}
+                  className="px-3 sm:px-4 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                  title="AI-powered search"
+                >
+                  <FaMagic className="text-xs sm:text-sm" />
+                  <span className="hidden sm:inline">AI</span>
+                  <span className="sm:hidden">AI</span>
+                </Button>
+              </div>
             </div>
           </form>
+
+          {voiceError && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <span className="flex-1">{voiceError}</span>
+              <button
+                type="button"
+                onClick={() => setVoiceError("")}
+                className="text-amber-500 hover:text-amber-700"
+                aria-label="Dismiss"
+              >
+                <FaTimes />
+              </button>
+            </div>
+          )}
+
+          {voiceStatus && (
+            <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              <span className="flex-1">{voiceStatus}</span>
+            </div>
+          )}
 
           {/* Quick Filters */}
           <div className="flex flex-wrap items-center gap-4 mt-4">
@@ -268,7 +489,7 @@ export default function SearchPage() {
             </button>
 
             {query && (
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 block sm:inline">
                 {searchResults.length} results for "{query}"
                 {aiPowered && (
                   <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">
@@ -282,7 +503,7 @@ export default function SearchPage() {
           {/* Advanced Filters */}
           {showFilters && (
             <Card className="p-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Category
@@ -350,8 +571,13 @@ export default function SearchPage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-2">
-                <Button onClick={() => handleSearch()}>Apply Filters</Button>
+              <div className="mt-4 flex flex-col xs:flex-row gap-2">
+                <Button
+                  onClick={() => handleSearch()}
+                  className="w-full xs:w-auto"
+                >
+                  Apply Filters
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -362,6 +588,7 @@ export default function SearchPage() {
                       sortBy: "relevance",
                     });
                   }}
+                  className="w-full xs:w-auto"
                 >
                   Clear
                 </Button>
@@ -391,7 +618,7 @@ export default function SearchPage() {
                   </span>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {searchResults.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
@@ -406,7 +633,7 @@ export default function SearchPage() {
               <p className="text-gray-500 mb-6">
                 Try different keywords or filters
               </p>
-              <Button onClick={() => handleAISearch()}>
+              <Button onClick={() => handleSearch()}>
                 <FaMagic className="mr-2" />
                 Try AI Search
               </Button>
@@ -462,5 +689,13 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
+      <SearchPageInner />
+    </Suspense>
   );
 }
